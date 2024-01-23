@@ -1,0 +1,42 @@
+<div id="app">
+  <div class="container">
+    <div class="row">
+      <div class="col-7">
+        <img :src="image">
+      </div>
+      <div class="col-5">
+        Created: {{ img_data['created'] }} <br />
+        Modified: {{ img_data['modified'] }} <br />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-2">
+        <button @click="rotate">rotate</button>
+        <button @click="count++">[[ count ]]</button>
+      </div>
+      <div class="col-2">
+        <button @click="count2++">[[ count2 ]]</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref } = Vue
+
+const app = createApp({
+  setup() {
+      const image = ref("{{ url_for('static', filename='figure.png') }}")
+      const count = ref(2)
+      const count2 = ref(3)
+      function rotate() {
+        count.value++
+      }
+      return {
+        image, count, count2, rotate
+      }
+  }
+})
+app.config.compilerOptions.delimiters = ['[[',']]']
+app.mount('#app')
+</script>
