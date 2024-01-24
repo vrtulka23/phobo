@@ -1,0 +1,25 @@
+<div id="app">
+  <div class="container">
+    Welcome to PhoBo
+  </div>
+</div>
+
+<script>
+const { createApp, ref } = Vue
+
+const app = createApp({
+  setup() {
+      //const image = ref("{{ url_for('static', filename='figure.png') }}")
+      //const count = ref(2)
+      //const count2 = ref(3)
+      //function rotate() {
+      //    count.value++
+      //}
+      //return {
+      //    image, count, count2, rotate
+      //}
+  }
+})
+app.config.compilerOptions.delimiters = ['[[',']]']
+app.mount('#app')
+</script>
