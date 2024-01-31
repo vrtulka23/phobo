@@ -3,45 +3,30 @@ from bs4 import BeautifulSoup as bs
 from PIL import Image
 from tinydb import TinyDB, Query
 from pathlib import Path
+import glob
 import os
 from datetime import datetime
 
 from .settings import *
-from .setup import setup_page
+from .routers.setup import setup_page
+from .routers.photo import photo_page
 
 app = Flask(__name__)
 app.register_blueprint(setup_page)
+app.register_blueprint(photo_page)
 
 @app.route("/")
 def index():
     
     return render_template(
         PAGE_INDEX, 
-        content_page='home.html',
+        content_page='home.html', 
+        dir_import = DIR_IMPORT,
+        dir_phobo = DIR_PHOBO,
+        dir_photos = DIR_PHOTOS,
+        file_database = DB_FILE,
     )
 
-@app.route('/photo')
-def preview_photo():
-    
-    img_data = {}
-    
-    img_file = 'figure.png'
-    exif = Image.open('src/static/'+img_file).getexif()
-    if exif:
-        print(exif[36867])
-        
-    img_stat = os.stat('src/static/'+img_file)
-    img_data = {
-        'created': datetime.fromtimestamp(img_stat.st_ctime).strftime(FORMAT_DATE),
-        'modified': datetime.fromtimestamp(img_stat.st_mtime).strftime(FORMAT_DATE),
-    }
-    
-    return render_template(
-        PAGE_INDEX, 
-        content_page='photo.html',  
-        img_data=img_data
-    )
-    
 @app.route('/image')
 def image():
 
@@ -54,7 +39,7 @@ def image():
     file_object = db_file_list.get(doc_id=file_id)
 
     file_name = file_object['name']
-    file_path = Path(DIR_PHOTO)/file_name
+    file_path = Path(DIR_IMPORT)/file_name
 
     image_size=(300, 300)
     if os.path.isfile(file_path):

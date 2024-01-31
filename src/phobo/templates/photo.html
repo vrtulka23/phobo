@@ -1,22 +1,14 @@
 <div id="app">
   <div class="container">
     <div class="row">
-      <div class="col-7">
-        <img :src="image">
+      <h2>List of figures</h2>
+      {% for photo in photo_list %}
+      <div class="col-md-1">
+        <a href="{{ photo.link }}">
+          <img src="{{ photo.file_path }}" alt="thumbnail" class="img-thumbnail">
+        </a>
       </div>
-      <div class="col-5">
-        Created: {{ img_data['created'] }} <br />
-        Modified: {{ img_data['modified'] }} <br />
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-2">
-        <button @click="rotate">rotate</button>
-        <button @click="count++">[[ count ]]</button>
-      </div>
-      <div class="col-2">
-        <button @click="count2++">[[ count2 ]]</button>
-      </div>
+      {% endfor %}
     </div>
   </div>
 </div>
@@ -26,6 +18,7 @@ const { createApp, ref } = Vue
 
 const app = createApp({
   setup() {
+      /*
       const image = ref("{{ url_for('static', filename='figure.png') }}")
       const count = ref(2)
       const count2 = ref(3)
@@ -34,7 +27,8 @@ const app = createApp({
       }
       return {
         image, count, count2, rotate
-      }
+      }*/
+      return {}
   }
 })
 app.config.compilerOptions.delimiters = ['[[',']]']

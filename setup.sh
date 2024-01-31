@@ -1,3 +1,4 @@
 #!/bin/bash
 
-flask --app ./src/phobo --debug run --host=0.0.0.0 --port=8080
+export PHOBO_ENV="production"
+flask --app ./src/phobo/phobo --debug run --host=0.0.0.0 --port=8080

@@ -1,0 +1,7 @@
+[production]
+DIR_IMPORT = ".phobo/import"
+DIR_PHOBO = ".phobo"
+
+[pytest]
+DIR_IMPORT = ".phobo_test/import"
+DIR_PHOBO = ".phobo_test"

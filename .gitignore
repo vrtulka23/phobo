@@ -1,5 +1,7 @@
 # Custom
 .phobo
+.phobo_test
+.bak_photos
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

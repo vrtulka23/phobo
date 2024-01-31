@@ -1,0 +1,6 @@
+pytest
+pytest-env
+json
+hashlib
+tinydb
+flask
