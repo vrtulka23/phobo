@@ -6,11 +6,45 @@ import glob
 import json
 import shutil
 import time
+import re
 import numpy as np
 from pathlib import Path
 from PIL import Image, ExifTags
 
 from ..settings import *
+
+def pattern_time(m):
+    string, delim, time, hms1, delim1, hms2, delim2, hms3, hm1, delim3, hm2 = m
+    if hms3:
+        return f"{delim}%H{delim1}%M{delim2}%S"
+    elif hm2:
+        return f"{delim}%H{delim3}%M"
+    else:
+        return ""
+
+def pattern_date_YMD(m):
+    string, year, delim1, dm1, delim2, dm2 = m[:6]
+    if delim1!=delim2: return False
+    time = pattern_time(m[6:])
+    return datetime.strptime(string, f"%Y{delim1}%m{delim2}%d{time}").timestamp()
+    
+def pattern_date_DMY_MDY(m):
+    string, dm1, delim2, dm2, delim1, year = m[:6]
+    if delim1!=delim2: return False
+    dm1, dm2 = ("%m", "%d") if int(dm2)>12 else ("%d", "%m")
+    time = pattern_time(m[6:])
+    return datetime.strptime(string, f"{dm1}{delim1}{dm2}{delim2}%Y{time}").timestamp()
+
+YEAR   = "(19[0-9]{2}|20[0-9]{2})"
+DM     = "([0-9]{1,2})"
+HMS    = "([0-9]{2})"
+DELIM1 = "([-_\s]{1}|)"  # delimiters / and . should not be used in an URL
+DELIM2 = "([-_:\s]{1}|)" # time part has an additional delimiter :
+TIME   = "([-_\s]+|)("+HMS+DELIM2+HMS+DELIM2+HMS+"|"+HMS+DELIM2+HMS+")"
+DATETIME_PATTERNS = {
+    "("+YEAR+DELIM1+DM+DELIM1+DM+"("+TIME+"|))": pattern_date_YMD,
+    "("+DM+DELIM1+DM+DELIM1+YEAR+"("+TIME+"|))": pattern_date_DMY_MDY,
+}
 
 class PhotoModel:
     
@@ -61,7 +95,20 @@ class PhotoModel:
         doc = self.table.get(doc_id=doc_id)
         index, variant = self._find_variant(doc, variant_id)
         return variant
-
+        
+    def update_variant(self, doc_id:int, variant_id:str, data:dict):
+        Photo = Query()
+        def update_variant(data, variant_id):
+            def transform(doc):
+                for i in range(len(doc['variants'])):
+                    if doc['variants'][i]['variant_id'].startswith(variant_id):
+                        break
+                else:
+                    raise Exception("Photo variant could not be found:", doc_id, variant_id)
+                doc['variants'][i].update(data)
+            return transform
+        self.table.update(update_variant(data, variant_id), doc_ids=[int(doc_id)])
+        
     def list_registered(self, variant:bool=False):
         docs = self.table.all()
         if variant:
@@ -73,9 +120,9 @@ class PhotoModel:
         Photo, Variant = Query(), Query()
         file_names = []
         for file_path in glob.glob(f"{DIR_IMPORT}/**", recursive=True):            
-            file_name = str(Path(file_path).relative_to(DIR_IMPORT))
-            if os.path.isdir(file_name):
+            if os.path.isdir(file_path):
                 continue
+            file_name = str(Path(file_path).relative_to(DIR_IMPORT))
             if self.table.count(Photo.variants.any(Variant.name_original==file_name)):
                 continue
             file_names.append(file_name)
@@ -94,6 +141,55 @@ class PhotoModel:
                 ))
                 thumb.save(file_thumbnail, THUMBNAIL_TYPE)
 
+    def _variant_id(self, file_name:str):
+        json_string = json.dumps({
+            'name':      file_name,
+            'timestamp': time.time()
+        }, sort_keys=True)
+        hash_object = hashlib.sha256()
+        hash_object.update(json_string.encode())
+        return hash_object.hexdigest()
+
+    def _path_dates(self, file_original:str):
+        dates = []
+        for regexp, dtformat in DATETIME_PATTERNS.items():
+            if ms := re.findall(regexp,file_original):
+                for m in ms:
+                    print(m)
+                    if dt := dtformat(m):   
+                        dates.append(dt)
+        return dates
+
+    def _image_info(self, file_original:str):
+        # Extract general information
+        data = dict(
+            file_created  = os.path.getctime(file_original),
+            file_modified = os.path.getmtime(file_original),
+            file_size     = os.path.getsize(file_original),
+            exif          = None,
+        )
+        with Image.open(file_original) as img:
+            # Extract EXIF information
+            if exif := img._getexif():
+                data['exif'] = {ExifTags.TAGS[k]: str(v) for k, v in exif.items() if k in ExifTags.TAGS}
+            # Get image resolution
+            data['image_size'] = img.size
+            data['image_format'] = img.format
+        # Extract dates from image file path
+        data['file_path_dates'] = self._path_dates(file_original)
+        # Set the most relevat photo datetime
+        if data['exif'] and 'DateTime' in data['exif']:
+            data['datetime'] = datetime.strptime(data['exif']['DateTime'], FORMAT_DATE_EXIF).timestamp()
+        elif data['exif'] and 'CreateDate' in data['exif']:
+            data['datetime'] = datetime.strptime(data['exif']['CreateDate'], FORMAT_DATE_EXIF).timestamp()
+        elif data['exif'] and 'DateTimeOriginal' in data['exif']:
+            data['datetime'] = datetime.strptime(data['exif']['DateTimeOriginal'], FORMAT_DATE_EXIF).timestamp()
+        elif data['file_path_dates']:
+            data['datetime'] = float(min(data['file_path_dates']))
+        else:
+            data['datetime'] = float(data['file_created'])
+        return data
+    
     def add(self, file_name_original:str=None, doc_id:int=None):
         if doc_id is not None:
             file_names = self.list_unregistered()
@@ -104,41 +200,18 @@ class PhotoModel:
         if not os.path.isfile(file_original):
             raise Exception('Followng file is not present in the inport directory:', file_name_original)
         # create variant id
-        json_string = json.dumps({
-            'name':      file_name_original,
-            'timestamp': time.time()
-        }, sort_keys=True)
-        hash_object = hashlib.sha256()
-        hash_object.update(json_string.encode())
-        variant_id = hash_object.hexdigest()
+        variant_id = self._variant_id(file_name_original)
         # insert reccord into the database
-        file_name_registered = "original" + Path(file_name_original).suffix
-        with Image.open(file_original) as img:
-            if exif := img._getexif():
-                exif = {ExifTags.TAGS[k]: str(v) for k, v in exif.items() if k in ExifTags.TAGS}
-            else:
-                exif = None
-            image_size = img.size
-        variant = {
-            'variant_id': variant_id,
-            'name': file_name_registered,
-            'name_original': file_name_original,
-            'file_created':  os.path.getctime(file_original),
-            'file_modified': os.path.getmtime(file_original),
-            'file_size': os.path.getsize(file_original),
-            'image_size': image_size,
-            'exif': exif,
-        }
         doc_id = self.table.insert({
             'variant_id': variant_id,
-            'variants': [variant]
+            'variants': [{
+                'variant_id': variant_id,
+                'name_original': file_name_original,
+            } | self._image_info(file_original)]
         })
         # create reccord and variant directories
         dir_variant = self.get_dir(doc_id, variant_id)
         os.makedirs(dir_variant)
-        # move imported file into the variant directory
-        file_registered = f"{dir_variant}/{file_name_registered}"
-        shutil.copy(file_original, file_registered)
         # create a thumbnail image
         file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
         self.create_thumbnail(file_original, file_thumbnail)

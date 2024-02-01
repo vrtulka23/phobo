@@ -72,7 +72,7 @@ def show_registered():
                     break
             data.append({
                 'doc_id':        doc.doc_id,
-                'variant_id':    doc['variant_id'],
+                'variant_id':    doc['variant_id'][:VARIANT_ID_CUT],
                 'name':          variant['name_original'],
             })
     return jsonify({

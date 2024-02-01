@@ -1,6 +1,7 @@
 import numpy 
 from PIL import Image
 from tinydb import TinyDB, Query
+from datetime import datetime
 import glob
 import pytest
 import os
@@ -9,7 +10,7 @@ import sys
 sys.path.insert(1, 'src')
 
 from phobo.settings import *
-from phobo.models.photos import PhotoModel
+from phobo.models.photos import PhotoModel, DATETIME_PATTERNS
 
 @pytest.fixture
 def clear_data():
@@ -104,3 +105,46 @@ def test_get_photo(clear_data, sample_photo):
         doc_id = pm.add(sample_photo[0])
         doc = pm.get_photo(doc_id)
         assert doc.doc_id == doc_id
+        
+def test_file_path_dates():
+    with PhotoModel() as p:
+        examples = {
+            # YMD
+            "2023-03-13": "%Y-%m-%d", # different delimiters
+            "2023_03_13": "%Y_%m_%d", 
+            "2023 03 13": "%Y %m %d", 
+            "20230313":   "%Y%m%d", 
+            # DMY & MDY
+            "13-02-2023": "%d-%m-%Y", # DMY
+            "03-02-2023": "%d-%m-%Y", # DMY if not specified
+            "03-13-2023": "%m-%d-%Y", # MDY if date higher than 12
+            # single digit month and date
+            "2023-3-4":   "%Y-%m-%d",
+            # YMD HM
+            "2023-03-13 12:33": "%Y-%m-%d %H:%M", # different delimiters
+            "2023-03-13 12-33": "%Y-%m-%d %H-%M", 
+            "2023-03-13 12_33": "%Y-%m-%d %H_%M", 
+            "2023-03-13 12 33": "%Y-%m-%d %H %M", 
+            "2023-03-13 1233":  "%Y-%m-%d %H%M", 
+            # YMD HMS
+            "2023-03-13 12:33:34": "%Y-%m-%d %H:%M:%S",
+            # spacing between date and time
+            "2023-03-13__12:33:34": "%Y-%m-%d__%H:%M:%S",
+        }
+        for date_string, dtformat in examples.items():
+            print(date_string, dtformat)
+            assert p._path_dates(f"sub_{date_string}/image_{date_string}.jpg") == [
+                    datetime.strptime(date_string, dtformat).timestamp(),
+                    datetime.strptime(date_string, dtformat).timestamp(),
+            ]
+
+@pytest.mark.parametrize("sample_photo", [1], indirect=True)
+def test_update_variant(clear_data, sample_photo):
+    # create a photo
+    with PhotoModel() as p:
+        doc_id = p.add(sample_photo[0])
+        doc = p.get_photo(doc_id)
+        p.update_variant(doc_id, doc['variant_id'], {'datetime':'changed'})
+        doc = p.get_photo(doc_id)
+        assert doc['variants'][0]['datetime'] == 'changed'
+        
