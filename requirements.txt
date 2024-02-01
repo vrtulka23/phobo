@@ -1,4 +1,6 @@
+pytest
+pytest-env
+json
+hashlib
+tinydb
 flask
-cv2
-pillow
-pillow-heif

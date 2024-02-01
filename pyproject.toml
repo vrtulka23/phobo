@@ -1,0 +1,7 @@
+[project]
+version = "1.0.0"
+
+[tool.pytest.ini_options]
+env = [
+    "PHOBO_ENV=pytest",
+]

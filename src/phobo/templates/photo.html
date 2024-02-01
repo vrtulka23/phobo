@@ -1,0 +1,36 @@
+<div id="app">
+  <div class="container">
+    <div class="row">
+      <h2>List of photos</h2>
+      {% for photo in photo_list %}
+      <div class="col-md-1">
+        <a href="{{ photo.link }}">
+          <img src="{{ photo.file_path }}" alt="thumbnail" class="img-thumbnail">
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref } = Vue
+
+const app = createApp({
+  setup() {
+      /*
+      const image = ref("{{ url_for('static', filename='figure.png') }}")
+      const count = ref(2)
+      const count2 = ref(3)
+      function rotate() {
+        count.value++
+      }
+      return {
+        image, count, count2, rotate
+      }*/
+      return {}
+  }
+})
+app.config.compilerOptions.delimiters = ['[[',']]']
+app.mount('#app')
+</script>

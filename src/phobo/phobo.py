@@ -1,67 +1,36 @@
-from flask import Flask, request, make_response
-from bs4 import BeautifulSoup
-import numpy as np
-import cv2
-import glob
-from pathlib import Path
-from scinumtools import ThumbnailImage
-import io
-from PIL import Image, ImageDraw, ImageFont
-from pillow_heif import register_heif_opener
-register_heif_opener()
-import os
+from flask import Flask, render_template, url_for
+from bs4 import BeautifulSoup as bs
+from PIL import Image
 from tinydb import TinyDB, Query
+from pathlib import Path
+import glob
+import os
+from datetime import datetime
 
 from .settings import *
-from .steps import intro, setup, preview
+from .routers.setup import setup_page
+from .routers.photo import photo_page
 
 app = Flask(__name__)
+app.register_blueprint(setup_page)
+app.register_blueprint(photo_page)
 
-def stepper(html, step):
-    step_back = step-1 if step>0 else 0
-    step_next = step+1
-    
-    stepper = html.new_tag('div', **{'class':'content'})
-    button_back = html.new_tag("a", href=f"?step={step_back}")
-    button_back.string = "Previous step"
-    stepper.append(button_back)
-    stepper.append("|")
-    button_next = html.new_tag("a", href=f"?step={step_next}")
-    button_next.string = "Next step"
-    stepper.append(button_next)
-    return stepper
-
-@app.route('/')
+@app.route("/")
 def index():
-
-    step = request.args.get('step')
-    step = 0 if step is None else int(step)
-
-    with open('./html/main.html','r') as f:
-        html = BeautifulSoup(f.read(), "html.parser")
-
-    style = html.new_tag('link', rel="stylesheet", href="./css/main.css")
-    html.head.append(style)
-
-    content = html.find('div', id='content')
-
-    content.append(stepper(html,step))
-
-    steps = [
-        intro,
-        setup,
-        preview,
-    ]
-    content.append(steps[step](html))
-
-    content.append(stepper(html,step))
     
-    return html.prettify()
-    
+    return render_template(
+        PAGE_INDEX, 
+        content_page='home.html', 
+        dir_import = DIR_IMPORT,
+        dir_phobo = DIR_PHOBO,
+        dir_photos = DIR_PHOTOS,
+        file_database = DB_FILE,
+    )
+
 @app.route('/image')
 def image():
 
-    db = TinyDB(DIR_PHOBO/DB_NAME)
+    db = TinyDB(Path(DIR_PHOBO)/DB_NAME)
     User = Query()
 
     file_id = request.args.get('file')
@@ -70,7 +39,7 @@ def image():
     file_object = db_file_list.get(doc_id=file_id)
 
     file_name = file_object['name']
-    file_path = DIR_PHOTO/file_name
+    file_path = Path(DIR_IMPORT)/file_name
 
     image_size=(300, 300)
     if os.path.isfile(file_path):

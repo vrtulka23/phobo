@@ -1,0 +1,127 @@
+<div id="app">
+  <div class="container">
+    <div class="row">
+      <div class="col-6">
+        <h2>Photo #{{ doc_id }}</h2>
+      </div>
+      <div class="col-6">
+        <a href="{{ url_overview }}" class="btn btn-secondary float-end"><i class="bi bi-microsoft"></i></a>
+        <a href="" class="btn btn-secondary float-end me-2"><i class="bi bi-arrow-right-square-fill"></i></a>
+        <a href="" class="btn btn-secondary float-end me-2"><i class="bi bi-arrow-left-square-fill"></i></a>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">
+        <div class="row">
+          <div class="col-12">
+              <img :src="url_image" alt="thumbnail" class="img-thumbnail">
+          </div>
+          <div class="col-12 pt-2">
+            <button class="btn btn-primary btn-sm me-2"><i class="bi bi-arrow-clockwise"></i></button>
+            <button class="btn btn-primary btn-sm"><i class="bi bi-arrow-counterclockwise"></i></button>
+          </div>
+          <div class="col-12 pt-2">
+            <h4>Available variants</h4>
+          </div>
+          <div class="col-4" v-for="item in variant_list" v-if="variant_list">
+             <a :href="item.variant_link">
+                <img :src="item.file_path" alt="thumbnail" class="img-thumbnail">
+             </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-9">
+        <div class="row">
+          <div class="col-md-6">
+              <h3>Image info</h3>
+              <table class="table table-sm">
+                <tr><th>Variant ID</th><td>
+                  <span class="d-inline-block text-truncate" style="max-width: 250px;" title="{{ variant_id }}">{{ variant_id }}</span>
+                </td></tr>
+                <tr><th class="align-middle">File path</th><td>
+                  <a href="{{ file_original }}">
+                    <span class="d-inline-block text-truncate align-middle" style="max-width: 250px;" title="{{ file_path }}">{{ file_path }}</span>
+                  </a>
+                  <button class="btn btn-primary btn-sm float-end" @click="to_clipboard('{{ file_path }}')"><i class="bi bi-copy"></i></button>
+                </td></tr>
+                <tr><th>File size</th><td>{{ file_size }}</td></tr>
+                <tr><th>Image size</th><td>{{ image_size }}</td></tr>
+                <tr><th>Image format</th><td>{{ image_format }}</td></tr>
+                <tr><th>Time stamp</th><td>[[ datetime ]]</td></tr>
+              </table>
+          </div>
+          <div class="col-md-6">
+              <h3>Time stamp options</h3>
+              <table class="table table-sm">
+                  <tr>
+                    <th class="align-middle">Custom date</th>
+                    <td><input type="text" class="form-control form-control-sm" placeholder="YYYY-MM-DD HH:MM:SS" id="datetime_input"></td>
+                    <td>
+                      <button class="btn btn-primary btn-sm float-end" @click="set_datetime('datetime_input')"><i class="bi bi-calendar-check"></i></button>
+                    </td>
+                  </tr>
+                  {% for datetime_id, name, date in dates %}
+                  <tr>
+                    <th>{{ name }}</th>
+                    <td>{{ date }}<input type="hidden" value="{{ date }}" id="{{ datetime_id }}"></td>
+                    <td><button class="btn btn-primary btn-sm float-end" @click="set_datetime('{{ datetime_id }}')"><i class="bi bi-calendar-check"></i></button></td>
+                    </tr>
+                  {% endfor %}
+              </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, onMounted } = Vue
+
+const app = createApp({
+  setup() {
+      const variant_list = ref();
+      const url_image = ref();
+      const datetime = ref();
+      onMounted(async () => {
+      await fetch("{{ api_photo_data }}")
+        .then((response) => response.json())
+        .then((result) => (variant_list.value = result.variants)); 
+      });
+      onMounted(async () => {
+      await fetch("{{ api_variant_get }}")
+        .then((response) => response.json())
+        .then((result) => (
+          url_image.value = result.url_image, 
+          datetime.value = result.datetime
+        )); 
+      });
+      function set_datetime(input_id) {
+        value = document.getElementById(input_id).value
+        if (value=="") {
+          alert('Date time cannot be empty!')
+        } else {
+          console.log(value)
+          axios.post("{{ api_variant_set }}", {datetime: value})
+          .then(function (response) {
+            console.log(response)
+            url_image.value = response.data.url_image, 
+            datetime.value = response.data.datetime
+          })
+          .catch(function (error) {
+            alert('API call error: '+error)
+          })
+        }
+      }
+      function to_clipboard(text) {
+        navigator.clipboard.writeText(text);
+      }
+      return {
+          variant_list, url_image, datetime, set_datetime,
+          to_clipboard
+      }
+  }
+})
+app.config.compilerOptions.delimiters = ['[[',']]']
+app.mount('#app')
+</script>
