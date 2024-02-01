@@ -2,6 +2,7 @@
 .phobo
 .phobo_test
 .bak_photos
+settings.toml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
