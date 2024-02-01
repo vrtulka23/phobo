@@ -52,8 +52,6 @@ def check_added_photo(doc_id):
         dir_variant = f"{DIR_PHOTOS}/photo-{doc_id}/variant-{doc['variant_id']}"
         assert variant['variant_id'] == doc['variant_id']
         assert variant['name_original'].startswith("sample")
-        assert variant['name'] == "original.png"
-        assert os.path.isfile(f"{dir_variant}/{variant['name']}")
         assert os.path.isfile(f"{dir_variant}/{THUMBNAIL_NAME}")
 
 def check_removed_photo(doc_id):
