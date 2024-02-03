@@ -10,7 +10,7 @@ import sys
 sys.path.insert(1, 'src')
 
 from phobo.settings import *
-from phobo.models.photos import PhotoModel, DATETIME_PATTERNS
+from phobo.models.photo_model import PhotoModel, DATETIME_PATTERNS
 
 @pytest.fixture
 def clear_data():
@@ -31,7 +31,6 @@ def sample_photo(request):
     file_names = [f"sample{i}.png" for i in range(count)]
     for i in range(count):
         file_path = f"{DIR_IMPORT}/{file_names[i]}"
-        print(file_path)
         im.save(file_path)
     return file_names  
 
@@ -146,3 +145,13 @@ def test_update_variant(clear_data, sample_photo):
         doc = p.get_photo(doc_id)
         assert doc['variants'][0]['datetime'] == 'changed'
         
+@pytest.mark.parametrize("sample_photo", [1], indirect=True)
+def test_thumbnail(clear_data, sample_photo):
+    # create a photo
+    with PhotoModel() as pm:
+        file_original = f"{DIR_IMPORT}/{sample_photo[0]}"
+        file_thumbnail = f"{DIR_IMPORT}/thumbnail.png"
+        pm._create_thumbnail(file_original, file_thumbnail, 90)
+    # check if thumbnail exists and has correct size
+    with Image.open(file_thumbnail) as img:
+        assert img.size == (THUMBNAIL_SIZE, THUMBNAIL_SIZE)

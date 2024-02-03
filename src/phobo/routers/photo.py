@@ -3,7 +3,7 @@ from flask import request, url_for, send_file
 from datetime import datetime
 
 from ..settings import *
-from ..models.photos import PhotoModel
+from ..models.photo_model import PhotoModel
 
 photo_page = Blueprint(
     'photo_page', 
@@ -44,11 +44,17 @@ def photo_view():
 def photo_preview(doc_id, variant_id):
     
     with PhotoModel() as p:
-        doc = p.get_photo(doc_id)
-        variant = None
-        for v in doc['variants']:
-            if v['variant_id'].startswith(variant_id):
-                variant = v
+        docs = p.list_registered()
+    variant = None
+    for d,doc in enumerate(docs):
+        if int(doc.doc_id)!=int(doc_id):
+            continue
+        for variant in doc['variants']:
+            if variant['variant_id'].startswith(variant_id):
+                break
+        break
+    url_previous_photo = url_variant(docs[d-1].doc_id, docs[d-1]['variant_id']) if (d-1)>=0 else None
+    url_next_photo = url_variant(docs[d+1].doc_id, docs[d+1]['variant_id']) if (d+1)<len(docs) else None
     
     dates = [
         ["File Created", datetime.fromtimestamp(variant['file_created']).strftime(FORMAT_DATE)],
@@ -77,16 +83,18 @@ def photo_preview(doc_id, variant_id):
         content_page = 'photo_preview.html', 
         doc_id = doc_id,
         url_overview = url_for('photo_page.photo_view'),
+        url_previous_photo = url_previous_photo,
+        url_next_photo = url_next_photo,
         dates = dates,
         variant_id = variant['variant_id'],
         file_path = variant['name_original'],
         file_size = sizeof_fmt(variant['file_size']),
         image_size = variant['image_size'],
         image_format = variant['image_format'],
-        file_original = url_for('photo_page.api_file_original', doc_id=doc_id, variant_id=variant_id),
-        api_photo_data = url_for('photo_page.api_photo_get', doc_id=doc_id),
-        api_variant_get = url_for('photo_page.api_variant_get', doc_id=doc_id, variant_id=variant_id),
-        api_variant_set = url_for('photo_page.api_variant_set', doc_id=doc_id, variant_id=variant_id),
+        api_file_original = url_for('photo_page.api_file_original', doc_id=doc_id, variant_id=variant_id),
+        api_photo_data    = url_for('photo_page.api_photo_get', doc_id=doc_id),
+        api_variant_get   = url_for('photo_page.api_variant_get', doc_id=doc_id, variant_id=variant_id),
+        api_variant_set   = url_for('photo_page.api_variant_set', doc_id=doc_id, variant_id=variant_id),
     )
 
 @photo_page.route("/api/photo-<doc_id>/variant-<variant_id>/file/original")
@@ -131,16 +139,13 @@ def api_variant_get(doc_id, variant_id):
     return jsonify(dict(
         url_image = url_thumbnail(doc_id, variant['variant_id']),
         datetime = datetime.fromtimestamp(variant['datetime']).strftime(FORMAT_DATE),
+        rotation = variant['rotation'],
+        flip_vertically = variant['flip_vertically'],
+        flip_horizontally = variant['flip_horizontally'],
     ))
     
 @photo_page.route("/api/photo-<doc_id>/variant-<variant_id>/set", methods=['POST'])
 def api_variant_set(doc_id, variant_id):
-    data = request.json
-    if 'datetime' in data:
-        try:
-            data['datetime'] = datetime.strptime(data['datetime'], FORMAT_DATE).timestamp()
-        except:
-            raise Exception("Invalid datetime format:", data['datetime'], FORMAT_DATE)
     with PhotoModel() as p:
-        p.update_variant(doc_id, variant_id, data)
+        p.update_variant(doc_id, variant_id, request.json)
     return api_variant_get(doc_id, variant_id)

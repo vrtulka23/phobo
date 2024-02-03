@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, jsonify, request
 
 from ..settings import *
-from ..models.photos import PhotoModel
+from ..models.photo_model import PhotoModel
 
 setup_page = Blueprint(
     'setup_page', 

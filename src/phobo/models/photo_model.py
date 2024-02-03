@@ -9,7 +9,7 @@ import time
 import re
 import numpy as np
 from pathlib import Path
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, ImageOps
 
 from ..settings import *
 
@@ -61,7 +61,8 @@ class PhotoModel:
         if not os.path.isdir(DIR_PHOTOS):
             os.makedirs(DIR_PHOTOS)
         self.db = TinyDB(DB_FILE)
-        self.table = self.db.table(DB_TABLE_PHOTOS)
+        self.photos = self.db.table(DB_TABLE_PHOTOS)
+        self.variants = self.db.table(DB_TABLE_VARIANTS)
 
     def count(self):
         return dict(
@@ -86,31 +87,57 @@ class PhotoModel:
         return index, variant
     
     def get_photo(self, doc_id:int, variant:bool=False, variant_id:str=None):
-        doc = self.table.get(doc_id=doc_id)
+        doc = self.photos.get(doc_id=doc_id)
         if variant or variant_id:
             doc['variant_index'], doc['variant'] = self._find_variant(doc, variant_id)
         return doc
         
     def get_variant(self, doc_id:int, variant_id:str=None):
-        doc = self.table.get(doc_id=doc_id)
+        doc = self.photos.get(doc_id=doc_id)
         index, variant = self._find_variant(doc, variant_id)
         return variant
         
     def update_variant(self, doc_id:int, variant_id:str, data:dict):
+        # find variant and its current index
+        doc = self.photos.get(doc_id=doc_id)
+        for i,variant in enumerate(doc['variants']):
+            if variant['variant_id'].startswith(variant_id):
+                break
+        else:
+            raise Exception("Photo variant could not be found:", doc_id, variant_id)
+        # modify new data
+        if 'datetime' in data:
+            try:
+                data['datetime'] = datetime.strptime(data['datetime'], FORMAT_DATE).timestamp()
+            except:
+                raise Exception("Invalid datetime format:", data['datetime'], FORMAT_DATE)
+        if 'rotation' in data:
+            data['rotation'] += doc['variants'][i]['rotation']
+            if data['rotation']<0: data['rotation'] += 360
+            if data['rotation']>=360: data['rotation'] -= 360
+        # update document
         Photo = Query()
-        def update_variant(data, variant_id):
+        def update_variant(data, i):
             def transform(doc):
-                for i in range(len(doc['variants'])):
-                    if doc['variants'][i]['variant_id'].startswith(variant_id):
-                        break
-                else:
-                    raise Exception("Photo variant could not be found:", doc_id, variant_id)
                 doc['variants'][i].update(data)
             return transform
-        self.table.update(update_variant(data, variant_id), doc_ids=[int(doc_id)])
+        self.photos.update(update_variant(data, i), doc_ids=[int(doc_id)])
+        if 'rotation' in data or 'flip_vertically' in data or 'flip_horizontally' in data:
+            variant = self.get_variant(doc_id, variant_id)
+            file_original = f"{DIR_IMPORT}/{variant['name_original']}"
+            dir_variant = self.get_dir(doc_id, variant['variant_id'])
+            file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}" 
+            self._create_thumbnail(
+                file_original, 
+                file_thumbnail, 
+                variant['rotation'],
+                variant['flip_vertically'],
+                variant['flip_horizontally'],
+            )
+
         
     def list_registered(self, variant:bool=False):
-        docs = self.table.all()
+        docs = self.photos.all()
         if variant:
             for i in range(len(docs)):
                 doc[i]['variant_index'], doc[i]['variant'] = self._find_variant(doc[i])
@@ -123,12 +150,13 @@ class PhotoModel:
             if os.path.isdir(file_path):
                 continue
             file_name = str(Path(file_path).relative_to(DIR_IMPORT))
-            if self.table.count(Photo.variants.any(Variant.name_original==file_name)):
+            if self.photos.count(Photo.variants.any(Variant.name_original==file_name)):
                 continue
             file_names.append(file_name)
         return file_names
 
-    def create_thumbnail(self, file_original:str, file_thumbnail:str):
+    def _create_thumbnail(self, file_original:str, file_thumbnail:str, rotation:float=0, 
+                          flip_vertically:bool=False, flip_horizontally:bool=False):
         with Image.open(file_original) as photo:
             if photo.size[0]>photo.size[1]:
                 photo = photo.resize((THUMBNAIL_SIZE, int(THUMBNAIL_SIZE*photo.size[1]/photo.size[0])))
@@ -139,6 +167,12 @@ class PhotoModel:
                     int((THUMBNAIL_SIZE-photo.size[0])/2), 
                     int((THUMBNAIL_SIZE-photo.size[1])/2)
                 ))
+                if rotation>0:
+                    thumb = thumb.rotate(-rotation)
+                if flip_vertically:
+                    thumb = ImageOps.mirror(thumb)
+                if flip_horizontally:
+                    thumb = ImageOps.flip(thumb)
                 thumb.save(file_thumbnail, THUMBNAIL_TYPE)
 
     def _variant_id(self, file_name:str):
@@ -202,19 +236,22 @@ class PhotoModel:
         # create variant id
         variant_id = self._variant_id(file_name_original)
         # insert reccord into the database
-        doc_id = self.table.insert({
+        doc_id = self.photos.insert({
             'variant_id': variant_id,
             'variants': [{
                 'variant_id': variant_id,
                 'name_original': file_name_original,
+                'rotation': 0,
+                'flip_vertically': False,
+                'flip_horizontally': False,
             } | self._image_info(file_original)]
         })
-        # create reccord and variant directories
+        # create photos and variant directories
         dir_variant = self.get_dir(doc_id, variant_id)
         os.makedirs(dir_variant)
         # create a thumbnail image
         file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
-        self.create_thumbnail(file_original, file_thumbnail)
+        self._create_thumbnail(file_original, file_thumbnail)
         # return document ID
         return doc_id
         
@@ -227,8 +264,8 @@ class PhotoModel:
         
     def remove(self, doc_id:int=None):
         # remove database reccord
-        if self.table.contains(doc_id=doc_id):
-            self.table.remove(doc_ids=[doc_id])
+        if self.photos.contains(doc_id=doc_id):
+            self.photos.remove(doc_ids=[doc_id])
         # delete directory
         dir_photo = self.get_dir(doc_id)
         if os.path.isdir(dir_photo):

@@ -6,8 +6,12 @@
       </div>
       <div class="col-6">
         <a href="{{ url_overview }}" class="btn btn-secondary float-end"><i class="bi bi-microsoft"></i></a>
-        <a href="" class="btn btn-secondary float-end me-2"><i class="bi bi-arrow-right-square-fill"></i></a>
-        <a href="" class="btn btn-secondary float-end me-2"><i class="bi bi-arrow-left-square-fill"></i></a>
+        {% if url_next_photo %}
+        <a href="{{ url_next_photo }}" class="btn btn-secondary float-end me-2"><i class="bi bi-arrow-right-square-fill"></i></a>
+        {% endif %}
+        {% if url_previous_photo %}
+        <a href="{{ url_previous_photo }}" class="btn btn-secondary float-end me-2"><i class="bi bi-arrow-left-square-fill"></i></a>
+        {% endif %}
       </div>
     </div>
     <div class="row">
@@ -16,9 +20,18 @@
           <div class="col-12">
               <img :src="url_image" alt="thumbnail" class="img-thumbnail">
           </div>
-          <div class="col-12 pt-2">
-            <button class="btn btn-primary btn-sm me-2"><i class="bi bi-arrow-clockwise"></i></button>
-            <button class="btn btn-primary btn-sm"><i class="bi bi-arrow-counterclockwise"></i></button>
+          <div class="col-6 pt-2">
+            <div class="input-group input-group-sm mb-3">
+              <button class="btn btn-primary btn-sm" @click="image_rotate(-90)"><i class="bi bi-arrow-counterclockwise"></i></button>
+              <input type="text" class="form-control text-center" :value="rotation" readonly>
+              <button class="btn btn-primary btn-sm" @click="image_rotate(90)"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+          </div>
+          <div class="col-6 pt-2">
+            <input type="checkbox" class="btn-check" id="img_flip_horizontal" autocomplete="off" v-model="flip_horizontally">
+            <label class="btn btn-outline-primary btn-sm me-2" for="img_flip_horizontal" @click="img_flip('img_flip_horizontal')"><i class="bi bi-symmetry-horizontal"></i></label>
+            <input type="checkbox" class="btn-check" id="img_flip_vertical" autocomplete="off" v-model="flip_vertically">
+            <label class="btn btn-outline-primary btn-sm me-2" for="img_flip_vertical" @click="img_flip('img_flip_vertical')"><i class="bi bi-symmetry-vertical"></i></label>
           </div>
           <div class="col-12 pt-2">
             <h4>Available variants</h4>
@@ -39,7 +52,7 @@
                   <span class="d-inline-block text-truncate" style="max-width: 250px;" title="{{ variant_id }}">{{ variant_id }}</span>
                 </td></tr>
                 <tr><th class="align-middle">File path</th><td>
-                  <a href="{{ file_original }}">
+                  <a href="{{ api_file_original }}">
                     <span class="d-inline-block text-truncate align-middle" style="max-width: 250px;" title="{{ file_path }}">{{ file_path }}</span>
                   </a>
                   <button class="btn btn-primary btn-sm float-end" @click="to_clipboard('{{ file_path }}')"><i class="bi bi-copy"></i></button>
@@ -83,6 +96,9 @@ const app = createApp({
       const variant_list = ref();
       const url_image = ref();
       const datetime = ref();
+      const rotation = ref();
+      const flip_vertically = ref();
+      const flip_horizontally = ref();
       onMounted(async () => {
       await fetch("{{ api_photo_data }}")
         .then((response) => response.json())
@@ -93,7 +109,10 @@ const app = createApp({
         .then((response) => response.json())
         .then((result) => (
           url_image.value = result.url_image, 
-          datetime.value = result.datetime
+          datetime.value = result.datetime,
+          rotation.value = result.rotation+" deg",
+          flip_vertically.value = result.flip_vertically,
+          flip_horizontally.value = result.flip_horizontally
         )); 
       });
       function set_datetime(input_id) {
@@ -101,11 +120,8 @@ const app = createApp({
         if (value=="") {
           alert('Date time cannot be empty!')
         } else {
-          console.log(value)
           axios.post("{{ api_variant_set }}", {datetime: value})
           .then(function (response) {
-            console.log(response)
-            url_image.value = response.data.url_image, 
             datetime.value = response.data.datetime
           })
           .catch(function (error) {
@@ -113,12 +129,42 @@ const app = createApp({
           })
         }
       }
+      function image_rotate(angle) {
+        axios.post("{{ api_variant_set }}", {rotation: angle})
+        .then(function (response) {
+          ts = new Date().getTime()
+          url_image.value = response.data.url_image+"?"+ts
+          rotation.value = response.data.rotation+" deg"
+        })
+        .catch(function (error) {
+          alert('API call error: '+error)
+        })
+      }
+      function img_flip(input_id) {
+        checked = document.getElementById(input_id).checked
+        console.log(input_id, checked)
+        if (input_id=='img_flip_vertical') {
+          data = {flip_vertically: !checked}
+        }
+        if (input_id=='img_flip_horizontal') {
+          data = {flip_horizontally: !checked}
+        }
+        axios.post("{{ api_variant_set }}", data)
+        .then(function (response) {
+          ts = new Date().getTime()
+          url_image.value = response.data.url_image+"?"+ts
+        })
+        .catch(function (error) {
+          alert('API call error: '+error)
+        })
+      }
       function to_clipboard(text) {
         navigator.clipboard.writeText(text);
       }
       return {
           variant_list, url_image, datetime, set_datetime,
-          to_clipboard
+          to_clipboard, image_rotate, rotation, img_flip,
+          flip_vertically, flip_horizontally
       }
   }
 })
