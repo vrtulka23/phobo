@@ -17,12 +17,12 @@ DIR_PHOTOS         = f"{DIR_PHOBO}/photos"
 
 PAGE_INDEX         = "index.html"                # main page template
 
-DB_NAME            = "phobo_database.json"       # database file name
-DB_FILE            = f"{DIR_PHOBO}/{DB_NAME}"    # path to the database file
-DB_TABLE_PHOTOS    = 'photos'                    # database table containing photos
-DB_TABLE_VARIANTS  = 'variants'                  # database table containing variants
+DB_PHOTOS          = f"{DIR_PHOBO}/db_photos.json"
+DB_VARIANTS        = f"{DIR_PHOBO}/db_variants.json"
 
 VARIANT_ID_CUT     = 10                          # number of variant_id letters that are show in url
+
+SUPPORTED_FORMATS  = ['PNG','JPEG','GIF','PPM','TIFF','BMP','HEIF']
 
 FORMAT_DATE        = "%Y-%m-%d %H:%M:%S"         # output date and time format
 FORMAT_DATE_EXIF   = "%Y:%m:%d %H:%M:%S"         # date and time formation exif data

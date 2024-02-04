@@ -41,7 +41,8 @@
         <table class="table" v-if="preview_data.length">
           <thead>
             <tr>
-              <th class="col-sm-2">#</th>
+              <th class="col-sm-1">#</th>
+              <th class="col-sm-1">Format</th>
               <th class="col-sm-2" v-if="preview_type=='registered'">Variant ID</th>
               <th>File name</th>
               <th></th>
@@ -50,8 +51,11 @@
           <tbody>
             <tr v-for="item in preview_data">
               <td>[[ item.doc_id ]]</td>
+              <td>[[ item.format ]]</td>
               <td v-if="preview_type=='registered'">[[ item.variant_id ]]</td>
-              <td>[[ item.name ]]</td>
+              <td>
+                <span class="d-inline-block text-truncate align-middle" style="max-width: 400px;" :title="item.name">[[ item.name ]]</span>
+	      </td>
               <td>
               <button class='btn btn-danger btn-sm me-2' v-if="preview_type=='registered'" @click="remove_registered(item.doc_id)"><i class="bi bi-trash"></i></button>
               <button class='btn btn-primary btn-sm me-2' v-if="preview_type=='unregistered'" @click="add_unregistered(item.doc_id)"><i class="bi bi-plus-lg"></i></button>

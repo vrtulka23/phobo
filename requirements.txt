@@ -4,3 +4,6 @@ json
 hashlib
 tinydb
 flask
+dynaconf
+pillow
+pillow-heif

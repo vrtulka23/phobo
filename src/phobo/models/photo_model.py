@@ -6,50 +6,19 @@ import glob
 import json
 import shutil
 import time
-import re
 import numpy as np
 from pathlib import Path
 from PIL import Image, ExifTags, ImageOps
+from pillow_heif import register_heif_opener
+register_heif_opener()
 
+from .variant_model import VariantModel
+from .image_model import ImageModel
 from ..settings import *
-
-def pattern_time(m):
-    string, delim, time, hms1, delim1, hms2, delim2, hms3, hm1, delim3, hm2 = m
-    if hms3:
-        return f"{delim}%H{delim1}%M{delim2}%S"
-    elif hm2:
-        return f"{delim}%H{delim3}%M"
-    else:
-        return ""
-
-def pattern_date_YMD(m):
-    string, year, delim1, dm1, delim2, dm2 = m[:6]
-    if delim1!=delim2: return False
-    time = pattern_time(m[6:])
-    return datetime.strptime(string, f"%Y{delim1}%m{delim2}%d{time}").timestamp()
-    
-def pattern_date_DMY_MDY(m):
-    string, dm1, delim2, dm2, delim1, year = m[:6]
-    if delim1!=delim2: return False
-    dm1, dm2 = ("%m", "%d") if int(dm2)>12 else ("%d", "%m")
-    time = pattern_time(m[6:])
-    return datetime.strptime(string, f"{dm1}{delim1}{dm2}{delim2}%Y{time}").timestamp()
-
-YEAR   = "(19[0-9]{2}|20[0-9]{2})"
-DM     = "([0-9]{1,2})"
-HMS    = "([0-9]{2})"
-DELIM1 = "([-_\s]{1}|)"  # delimiters / and . should not be used in an URL
-DELIM2 = "([-_:\s]{1}|)" # time part has an additional delimiter :
-TIME   = "([-_\s]+|)("+HMS+DELIM2+HMS+DELIM2+HMS+"|"+HMS+DELIM2+HMS+")"
-DATETIME_PATTERNS = {
-    "("+YEAR+DELIM1+DM+DELIM1+DM+"("+TIME+"|))": pattern_date_YMD,
-    "("+DM+DELIM1+DM+DELIM1+YEAR+"("+TIME+"|))": pattern_date_DMY_MDY,
-}
 
 class PhotoModel:
     
     db = None
-    db_list = None
     
     def __enter__(self):
         return self
@@ -60,9 +29,7 @@ class PhotoModel:
     def __init__(self):
         if not os.path.isdir(DIR_PHOTOS):
             os.makedirs(DIR_PHOTOS)
-        self.db = TinyDB(DB_FILE)
-        self.photos = self.db.table(DB_TABLE_PHOTOS)
-        self.variants = self.db.table(DB_TABLE_VARIANTS)
+        self.db = TinyDB(DB_PHOTOS)
 
     def count(self):
         return dict(
@@ -76,30 +43,12 @@ class PhotoModel:
         else:
             return f"{DIR_PHOTOS}/photo-{doc_id}"
     
-    def _find_variant(self, doc:dict, variant_id:str=None):
-        if variant_id is None:
-            variant_id = doc['variant_id']
-        for index, variant in enumerate(doc['variants']):
-            if variant['variant_id'].startswith(variant_id):
-                break
-        else:
-            raise Exception("Variant with the given ID could not be found:", variant_id)
-        return index, variant
-    
-    def get_photo(self, doc_id:int, variant:bool=False, variant_id:str=None):
-        doc = self.photos.get(doc_id=doc_id)
-        if variant or variant_id:
-            doc['variant_index'], doc['variant'] = self._find_variant(doc, variant_id)
-        return doc
-        
-    def get_variant(self, doc_id:int, variant_id:str=None):
-        doc = self.photos.get(doc_id=doc_id)
-        index, variant = self._find_variant(doc, variant_id)
-        return variant
+    def get_photo(self, doc_id:int):
+        return self.db.get(doc_id=doc_id)
         
     def update_variant(self, doc_id:int, variant_id:str, data:dict):
         # find variant and its current index
-        doc = self.photos.get(doc_id=doc_id)
+        doc = self.db.get(doc_id=doc_id)
         for i,variant in enumerate(doc['variants']):
             if variant['variant_id'].startswith(variant_id):
                 break
@@ -121,23 +70,24 @@ class PhotoModel:
             def transform(doc):
                 doc['variants'][i].update(data)
             return transform
-        self.photos.update(update_variant(data, i), doc_ids=[int(doc_id)])
+        self.db.update(update_variant(data, i), doc_ids=[int(doc_id)])
         if 'rotation' in data or 'flip_vertically' in data or 'flip_horizontally' in data:
-            variant = self.get_variant(doc_id, variant_id)
+            doc = self.db.get(doc_id=doc_id)
+            with VariantModel(doc, variant_id) as var:
+                variant = var.data()
             file_original = f"{DIR_IMPORT}/{variant['name_original']}"
             dir_variant = self.get_dir(doc_id, variant['variant_id'])
-            file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}" 
-            self._create_thumbnail(
-                file_original, 
-                file_thumbnail, 
-                variant['rotation'],
-                variant['flip_vertically'],
-                variant['flip_horizontally'],
-            )
+            file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
+            with ImageModel(file_original) as img:
+                img.thumbnail(file_thumbnail, {
+                    'rotation': variant['rotation'],
+                    'flip_vertically': variant['flip_vertically'],
+                    'flip_horizontally': variant['flip_horizontally'],
+                })
 
         
     def list_registered(self, variant:bool=False):
-        docs = self.photos.all()
+        docs = self.db.all()
         if variant:
             for i in range(len(docs)):
                 doc[i]['variant_index'], doc[i]['variant'] = self._find_variant(doc[i])
@@ -145,35 +95,20 @@ class PhotoModel:
         
     def list_unregistered(self):
         Photo, Variant = Query(), Query()
-        file_names = []
+        file_list = []
         for file_path in glob.glob(f"{DIR_IMPORT}/**", recursive=True):            
             if os.path.isdir(file_path):
                 continue
+            with ImageModel(file_path) as img:
+                if img.im is None:
+                    continue
+                else:
+                    image_format = img.image_format
             file_name = str(Path(file_path).relative_to(DIR_IMPORT))
-            if self.photos.count(Photo.variants.any(Variant.name_original==file_name)):
+            if self.db.count(Photo.variants.any(Variant.name_original==file_name)):
                 continue
-            file_names.append(file_name)
-        return file_names
-
-    def _create_thumbnail(self, file_original:str, file_thumbnail:str, rotation:float=0, 
-                          flip_vertically:bool=False, flip_horizontally:bool=False):
-        with Image.open(file_original) as photo:
-            if photo.size[0]>photo.size[1]:
-                photo = photo.resize((THUMBNAIL_SIZE, int(THUMBNAIL_SIZE*photo.size[1]/photo.size[0])))
-            else:
-                photo = photo.resize((int(THUMBNAIL_SIZE*photo.size[0]/photo.size[1]), THUMBNAIL_SIZE))
-            with Image.new('RGB', (THUMBNAIL_SIZE,THUMBNAIL_SIZE), color='white') as thumb:
-                thumb.paste(photo, (
-                    int((THUMBNAIL_SIZE-photo.size[0])/2), 
-                    int((THUMBNAIL_SIZE-photo.size[1])/2)
-                ))
-                if rotation>0:
-                    thumb = thumb.rotate(-rotation)
-                if flip_vertically:
-                    thumb = ImageOps.mirror(thumb)
-                if flip_horizontally:
-                    thumb = ImageOps.flip(thumb)
-                thumb.save(file_thumbnail, THUMBNAIL_TYPE)
+            file_list.append(dict(file_name=file_name, image_format=image_format))
+        return file_list
 
     def _variant_id(self, file_name:str):
         json_string = json.dumps({
@@ -183,40 +118,25 @@ class PhotoModel:
         hash_object = hashlib.sha256()
         hash_object.update(json_string.encode())
         return hash_object.hexdigest()
-
-    def _path_dates(self, file_original:str):
-        dates = []
-        for regexp, dtformat in DATETIME_PATTERNS.items():
-            if ms := re.findall(regexp,file_original):
-                for m in ms:
-                    print(m)
-                    if dt := dtformat(m):   
-                        dates.append(dt)
-        return dates
-
+       
     def _image_info(self, file_original:str):
-        # Extract general information
-        data = dict(
-            file_created  = os.path.getctime(file_original),
-            file_modified = os.path.getmtime(file_original),
-            file_size     = os.path.getsize(file_original),
-            exif          = None,
-        )
-        with Image.open(file_original) as img:
-            # Extract EXIF information
-            if exif := img._getexif():
-                data['exif'] = {ExifTags.TAGS[k]: str(v) for k, v in exif.items() if k in ExifTags.TAGS}
-            # Get image resolution
-            data['image_size'] = img.size
-            data['image_format'] = img.format
-        # Extract dates from image file path
-        data['file_path_dates'] = self._path_dates(file_original)
+        # Get basic image data
+        with ImageModel(file_original) as img:
+            data = dict(
+                image_size      = img.image_size,
+                image_format    = img.image_format,
+                file_created    = img.file_created,
+                file_modified   = img.file_modified,
+                file_size       = img.file_size,
+                exif            = img.exif_data(),
+                file_path_dates = img.path_dates(),
+            )
         # Set the most relevat photo datetime
-        if data['exif'] and 'DateTime' in data['exif']:
+        if data['exif'] and 'DateTime' in data['exif'] and data['exif']['DateTime']:
             data['datetime'] = datetime.strptime(data['exif']['DateTime'], FORMAT_DATE_EXIF).timestamp()
-        elif data['exif'] and 'CreateDate' in data['exif']:
+        elif data['exif'] and 'CreateDate' in data['exif'] and data['exif']['CreateDate']:
             data['datetime'] = datetime.strptime(data['exif']['CreateDate'], FORMAT_DATE_EXIF).timestamp()
-        elif data['exif'] and 'DateTimeOriginal' in data['exif']:
+        elif data['exif'] and 'DateTimeOriginal' in data['exif'] and data['exif']['DateTimeOriginal']:
             data['datetime'] = datetime.strptime(data['exif']['DateTimeOriginal'], FORMAT_DATE_EXIF).timestamp()
         elif data['file_path_dates']:
             data['datetime'] = float(min(data['file_path_dates']))
@@ -226,8 +146,8 @@ class PhotoModel:
     
     def add(self, file_name_original:str=None, doc_id:int=None):
         if doc_id is not None:
-            file_names = self.list_unregistered()
-            file_name_original = file_names[doc_id]
+            file_list = self.list_unregistered()
+            file_name_original = file_list[doc_id]['file_name']
         elif not file_name_original:
             raise Exception("Filename or file index has to be set:", file_name_original, doc_id)
         file_original = f"{DIR_IMPORT}/{file_name_original}"
@@ -236,7 +156,7 @@ class PhotoModel:
         # create variant id
         variant_id = self._variant_id(file_name_original)
         # insert reccord into the database
-        doc_id = self.photos.insert({
+        doc_id = self.db.insert({
             'variant_id': variant_id,
             'variants': [{
                 'variant_id': variant_id,
@@ -251,21 +171,22 @@ class PhotoModel:
         os.makedirs(dir_variant)
         # create a thumbnail image
         file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
-        self._create_thumbnail(file_original, file_thumbnail)
+        with ImageModel(file_original) as img:
+            img.thumbnail(file_thumbnail)
         # return document ID
         return doc_id
         
     def add_all(self):
         doc_ids = []
-        file_names = self.list_unregistered()
-        for file_name in file_names:
-            doc_ids.append( self.add(file_name) )
+        file_list = self.list_unregistered()
+        for item in file_list:
+            doc_ids.append( self.add(item['file_name']) )
         return doc_ids
         
     def remove(self, doc_id:int=None):
         # remove database reccord
-        if self.photos.contains(doc_id=doc_id):
-            self.photos.remove(doc_ids=[doc_id])
+        if self.db.contains(doc_id=doc_id):
+            self.db.remove(doc_ids=[doc_id])
         # delete directory
         dir_photo = self.get_dir(doc_id)
         if os.path.isdir(dir_photo):

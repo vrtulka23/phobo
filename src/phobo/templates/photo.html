@@ -1,9 +1,13 @@
 <div id="app">
   <div class="container">
     <div class="row">
-      <h2>List of photos</h2>
+      <div class="col">
+	<h2>List of photos</h2>
+      </div>
+    </div>
+    <div class="row row-cols-2 row-cols-sm-6 gx-3 gy-3">
       {% for photo in photo_list %}
-      <div class="col-md-1">
+      <div class="col">
         <a href="{{ photo.link }}">
           <img src="{{ photo.file_path }}" alt="thumbnail" class="img-thumbnail">
         </a>

@@ -51,11 +51,12 @@ def add_unregistered():
 def show_unregistered():
     with PhotoModel() as p:
         data = []
-        for i, file_name in enumerate(p.list_unregistered()):
+        for i, item in enumerate(p.list_unregistered()):
             data.append({
                 'doc_id':        i+1,
                 'variant_id':    '-',
-                'name':          file_name,
+                'name':          item['file_name'],
+                'format':        item['image_format'],
             })
     return jsonify({
         'data': data,
@@ -74,6 +75,7 @@ def show_registered():
                 'doc_id':        doc.doc_id,
                 'variant_id':    doc['variant_id'][:VARIANT_ID_CUT],
                 'name':          variant['name_original'],
+                'format':        variant['image_format'],
             })
     return jsonify({
         'data': data,
