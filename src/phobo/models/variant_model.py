@@ -7,18 +7,15 @@ class VariantModel:
 
     doc: dict
     variant_id: str
-    db = None
-    variants = None
     
     def __enter__(self):
         return self
         
     def __exit__(self, type, value, traceback):
-        self.db.close()
-        
+        pass
+    
     def __init__(self, doc:dict, variant_id:str=None):
         self.doc = doc
-        self.db = TinyDB(DB_VARIANTS)
         if variant_id is None:
             self.variant_id = self.doc['variant_id']
         else:

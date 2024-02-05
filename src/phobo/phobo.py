@@ -24,7 +24,7 @@ def index():
         dir_import = DIR_IMPORT,
         dir_phobo = DIR_PHOBO,
         dir_photos = DIR_PHOTOS,
-        file_database = DB_FILE,
+        file_database = DB_PHOTOS,
     )
 
 @app.route('/image')

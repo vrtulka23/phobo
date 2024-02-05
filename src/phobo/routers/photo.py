@@ -98,13 +98,24 @@ def photo_preview(doc_id, variant_id):
         api_variant_set   = url_for('photo_page.api_variant_set', doc_id=doc_id, variant_id=variant_id),
     )
 
+@photo_page.route("/api/imports/<file_name>")
+def api_imports(file_name):
+    print(file_name)
+    file_path = f"{DIR_IMPORT}/{file_name}"
+    if os.path.isfile(file_path):
+        if file_path[0]=='/':
+            return send_file(file_path)
+        else:
+            return send_file(f"../../{file_path}")
+    else:
+        raise Exception("File could not be found:", file_path)
+
 @photo_page.route("/api/photo-<doc_id>/variant-<variant_id>/file/original")
 def api_file_original(doc_id, variant_id):
     with PhotoModel() as p:
         doc = p.get_photo(doc_id)
         with VariantModel(doc, variant_id) as var:
             variant = var.data()
-        print('BBB', DIR_IMPORT, variant['name_original'])
         file_path = f"{DIR_IMPORT}/{variant['name_original']}"
     if os.path.isfile(file_path):
         if file_path[0]=='/':

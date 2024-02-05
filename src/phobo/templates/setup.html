@@ -54,10 +54,13 @@
               <td>[[ item.format ]]</td>
               <td v-if="preview_type=='registered'">[[ item.variant_id ]]</td>
               <td>
-                <span class="d-inline-block text-truncate align-middle" style="max-width: 400px;" :title="item.name">[[ item.name ]]</span>
+                <span class="d-inline-block text-truncate align-middle" style="max-width: 400px;" :title="item.name">
+		  <a :href="item.url_image">[[ item.name ]]</a>
+		</span>
 	      </td>
               <td>
               <button class='btn btn-danger btn-sm me-2' v-if="preview_type=='registered'" @click="remove_registered(item.doc_id)"><i class="bi bi-trash"></i></button>
+              <a :href="item.url_photo" class='btn btn-secondary btn-sm me-2' v-if="preview_type=='registered'"><i class="bi bi-pencil-square"></i></a>
               <button class='btn btn-primary btn-sm me-2' v-if="preview_type=='unregistered'" @click="add_unregistered(item.doc_id)"><i class="bi bi-plus-lg"></i></button>
               </td>
             </tr>

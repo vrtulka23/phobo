@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, url_for
 
 from ..settings import *
 from ..models.photo_model import PhotoModel
@@ -52,11 +52,16 @@ def show_unregistered():
     with PhotoModel() as p:
         data = []
         for i, item in enumerate(p.list_unregistered()):
+            url_image = url_for(
+                'photo_page.api_imports',
+                file_name = item['file_name'],
+            )
             data.append({
                 'doc_id':        i+1,
                 'variant_id':    '-',
                 'name':          item['file_name'],
                 'format':        item['image_format'],
+                'url_image':     url_image
             })
     return jsonify({
         'data': data,
@@ -71,11 +76,22 @@ def show_registered():
             for variant in doc['variants']:
                 if variant['variant_id']==doc['variant_id']:
                     break
+            url_image = url_for(
+                'photo_page.api_imports',
+                file_name = variant['name_original'],
+            )
+            url_photo = url_for(
+                'photo_page.photo_preview',
+                doc_id = doc.doc_id,
+                variant_id = doc['variant_id'][:VARIANT_ID_CUT],
+            )
             data.append({
                 'doc_id':        doc.doc_id,
                 'variant_id':    doc['variant_id'][:VARIANT_ID_CUT],
                 'name':          variant['name_original'],
                 'format':        variant['image_format'],
+                'url_image':     url_image,
+                'url_photo':     url_photo,
             })
     return jsonify({
         'data': data,

@@ -18,18 +18,15 @@ from ..settings import *
 
 class PhotoModel:
     
-    db = None
-    
     def __enter__(self):
         return self
         
     def __exit__(self, type, value, traceback):
-        self.db.close()
+        pass
         
     def __init__(self):
         if not os.path.isdir(DIR_PHOTOS):
             os.makedirs(DIR_PHOTOS)
-        self.db = TinyDB(DB_PHOTOS)
 
     def count(self):
         return dict(
@@ -44,11 +41,13 @@ class PhotoModel:
             return f"{DIR_PHOTOS}/photo-{doc_id}"
     
     def get_photo(self, doc_id:int):
-        return self.db.get(doc_id=doc_id)
+        with TinyDB(DB_PHOTOS) as db:
+            return db.get(doc_id=doc_id)
         
     def update_variant(self, doc_id:int, variant_id:str, data:dict):
         # find variant and its current index
-        doc = self.db.get(doc_id=doc_id)
+        with TinyDB(DB_PHOTOS) as db:
+            doc = db.get(doc_id=doc_id)
         for i,variant in enumerate(doc['variants']):
             if variant['variant_id'].startswith(variant_id):
                 break
@@ -70,24 +69,25 @@ class PhotoModel:
             def transform(doc):
                 doc['variants'][i].update(data)
             return transform
-        self.db.update(update_variant(data, i), doc_ids=[int(doc_id)])
-        if 'rotation' in data or 'flip_vertically' in data or 'flip_horizontally' in data:
-            doc = self.db.get(doc_id=doc_id)
-            with VariantModel(doc, variant_id) as var:
-                variant = var.data()
-            file_original = f"{DIR_IMPORT}/{variant['name_original']}"
-            dir_variant = self.get_dir(doc_id, variant['variant_id'])
-            file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
-            with ImageModel(file_original) as img:
-                img.thumbnail(file_thumbnail, {
-                    'rotation': variant['rotation'],
-                    'flip_vertically': variant['flip_vertically'],
-                    'flip_horizontally': variant['flip_horizontally'],
-                })
-
+        with TinyDB(DB_PHOTOS) as db:
+            db.update(update_variant(data, i), doc_ids=[int(doc_id)])
+            if 'rotation' in data or 'flip_vertically' in data or 'flip_horizontally' in data:
+                doc = db.get(doc_id=doc_id)
+                with VariantModel(doc, variant_id) as var:
+                    variant = var.data()
+                file_original = f"{DIR_IMPORT}/{variant['name_original']}"
+                dir_variant = self.get_dir(doc_id, variant['variant_id'])
+                file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
+                with ImageModel(file_original) as img:
+                    img.thumbnail(file_thumbnail, {
+                        'rotation': variant['rotation'],
+                        'flip_vertically': variant['flip_vertically'],
+                        'flip_horizontally': variant['flip_horizontally'],
+                    })
         
     def list_registered(self, variant:bool=False):
-        docs = self.db.all()
+        with TinyDB(DB_PHOTOS) as db:
+            docs = db.all()
         if variant:
             for i in range(len(docs)):
                 doc[i]['variant_index'], doc[i]['variant'] = self._find_variant(doc[i])
@@ -96,18 +96,19 @@ class PhotoModel:
     def list_unregistered(self):
         Photo, Variant = Query(), Query()
         file_list = []
-        for file_path in glob.glob(f"{DIR_IMPORT}/**", recursive=True):            
-            if os.path.isdir(file_path):
-                continue
-            with ImageModel(file_path) as img:
-                if img.im is None:
+        with TinyDB(DB_PHOTOS) as db:
+            for file_path in glob.glob(f"{DIR_IMPORT}/**", recursive=True):            
+                if os.path.isdir(file_path):
                     continue
-                else:
-                    image_format = img.image_format
-            file_name = str(Path(file_path).relative_to(DIR_IMPORT))
-            if self.db.count(Photo.variants.any(Variant.name_original==file_name)):
-                continue
-            file_list.append(dict(file_name=file_name, image_format=image_format))
+                with ImageModel(file_path) as img:
+                    if img.im is None:
+                        continue
+                    else:
+                        image_format = img.image_format
+                file_name = str(Path(file_path).relative_to(DIR_IMPORT))
+                if db.count(Photo.variants.any(Variant.name_original==file_name)):
+                    continue
+                file_list.append(dict(file_name=file_name, image_format=image_format))
         return file_list
 
     def _variant_id(self, file_name:str):
@@ -156,16 +157,17 @@ class PhotoModel:
         # create variant id
         variant_id = self._variant_id(file_name_original)
         # insert reccord into the database
-        doc_id = self.db.insert({
-            'variant_id': variant_id,
-            'variants': [{
+        with TinyDB(DB_PHOTOS) as db:
+            doc_id = db.insert({
                 'variant_id': variant_id,
-                'name_original': file_name_original,
-                'rotation': 0,
-                'flip_vertically': False,
-                'flip_horizontally': False,
-            } | self._image_info(file_original)]
-        })
+                'variants': [{
+                    'variant_id': variant_id,
+                    'name_original': file_name_original,
+                    'rotation': 0,
+                    'flip_vertically': False,
+                    'flip_horizontally': False,
+                } | self._image_info(file_original)]
+            })
         # create photos and variant directories
         dir_variant = self.get_dir(doc_id, variant_id)
         os.makedirs(dir_variant)
@@ -185,8 +187,9 @@ class PhotoModel:
         
     def remove(self, doc_id:int=None):
         # remove database reccord
-        if self.db.contains(doc_id=doc_id):
-            self.db.remove(doc_ids=[doc_id])
+        with TinyDB(DB_PHOTOS) as db:
+            if db.contains(doc_id=doc_id):
+                db.remove(doc_ids=[doc_id])
         # delete directory
         dir_photo = self.get_dir(doc_id)
         if os.path.isdir(dir_photo):

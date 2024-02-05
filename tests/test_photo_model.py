@@ -13,7 +13,6 @@ def test_initialisation(clear_data):
     PhotoModel()
     assert os.path.isdir(DIR_PHOBO)
     assert os.path.isdir(DIR_PHOTOS)
-    assert os.path.isfile(DB_PHOTOS)
     
 def check_added_photo(doc_id):
     # test data in a database
