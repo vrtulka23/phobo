@@ -15,81 +15,23 @@
       </div>
     </div>
     <div class="row">
-      <div class="col-md-3">
-        <div class="row">
-          <div class="col-12">
-              <img :src="url_image" alt="thumbnail" class="img-thumbnail">
-          </div>
-          <div class="col-6 pt-2">
-            <div class="input-group input-group-sm mb-3">
-              <button class="btn btn-primary btn-sm" @click="image_rotate(-90)"><i class="bi bi-arrow-counterclockwise"></i></button>
-              <input type="text" class="form-control text-center" :value="rotation" readonly>
-              <button class="btn btn-primary btn-sm" @click="image_rotate(90)"><i class="bi bi-arrow-clockwise"></i></button>
-            </div>
-          </div>
-          <div class="col-6 pt-2">
-            <input type="checkbox" class="btn-check" id="img_flip_horizontal" autocomplete="off" v-model="flip_horizontally">
-            <label class="btn btn-outline-primary btn-sm me-2" for="img_flip_horizontal" @click="img_flip('img_flip_horizontal')"><i class="bi bi-symmetry-horizontal"></i></label>
-            <input type="checkbox" class="btn-check" id="img_flip_vertical" autocomplete="off" v-model="flip_vertically">
-            <label class="btn btn-outline-primary btn-sm me-2" for="img_flip_vertical" @click="img_flip('img_flip_vertical')"><i class="bi bi-symmetry-vertical"></i></label>
-          </div>
-          <div class="col-12 pt-2">
-            <h4>Available variants</h4>
-          </div>
-          <div class="col-4" v-for="item in variant_list" v-if="variant_list">
-             <a :href="item.variant_link">
-                <img :src="item.file_path" alt="thumbnail" class="img-thumbnail">
-             </a>
-          </div>
-        </div>
+      <div class="col-md-4">
+	{% include 'photo_image.html' %}
+	{% include 'photo_variants.html' %}
       </div>
-      <div class="col-lg-9">
-        <div class="row">
-          <div class="col-md-6">
-              <h3>Image info</h3>
-              <table class="table table-sm">
-                <tr><th>Variant ID</th><td>
-                  <span class="d-inline-block text-truncate" style="max-width: 250px;" title="{{ variant_id }}">{{ variant_id }}</span>
-                </td></tr>
-                <tr><th class="align-middle">File path</th><td>
-                  <a href="{{ api_file_original }}">
-                    <span class="d-inline-block text-truncate align-middle" style="max-width: 250px;" title="{{ file_path }}">{{ file_path }}</span>
-                  </a>
-                  <button class="btn btn-primary btn-sm float-end" @click="to_clipboard('{{ file_path }}')"><i class="bi bi-copy"></i></button>
-                </td></tr>
-                <tr><th>File size</th><td>{{ file_size }}</td></tr>
-                <tr><th>Image size</th><td>{{ image_size }}</td></tr>
-                <tr><th>Image format</th><td>{{ image_format }}</td></tr>
-                <tr><th>Time stamp</th><td>[[ datetime ]]</td></tr>
-              </table>
-          </div>
-          <div class="col-md-6">
-              <h3>Time stamp options</h3>
-              <table class="table table-sm">
-                  <tr>
-                    <th class="align-middle">Custom date</th>
-                    <td><input type="text" class="form-control form-control-sm" placeholder="YYYY-MM-DD HH:MM:SS" id="datetime_input"></td>
-                    <td>
-                      <button class="btn btn-primary btn-sm float-end" @click="set_datetime('datetime_input')"><i class="bi bi-calendar-check"></i></button>
-                    </td>
-                  </tr>
-                  {% for datetime_id, name, date in dates %}
-                  <tr>
-                    <th>{{ name }}</th>
-                    <td>{{ date }}<input type="hidden" value="{{ date }}" id="{{ datetime_id }}"></td>
-                    <td><button class="btn btn-primary btn-sm float-end" @click="set_datetime('{{ datetime_id }}')"><i class="bi bi-calendar-check"></i></button></td>
-                    </tr>
-                  {% endfor %}
-              </table>
-          </div>
-        </div>
+      <div class="col-lg-4">
+	{% include 'photo_info.html' %}
+	{% include 'photo_ratings.html' %}
+      </div>
+      <div class="col-lg-4">
+	{% include 'photo_dates.html' %}
       </div>
     </div>
   </div>
 </div>
 
 <script>
-const { createApp, ref, onMounted } = Vue
+  const { createApp, ref, onMounted, watch } = Vue
 
 const app = createApp({
   setup() {
@@ -97,8 +39,12 @@ const app = createApp({
       const url_image = ref();
       const datetime = ref();
       const rotation = ref();
-      const flip_vertically = ref();
-      const flip_horizontally = ref();
+      const mirror = ref();
+      const ratings_overall = ref();
+      const ratings_aesthetics = ref();
+      const ratings_emotions = ref();
+      const ratings_rarity = ref();
+      const ratings_change = ref(false);
       onMounted(async () => {
       await fetch("{{ api_photo_data }}")
         .then((response) => response.json())
@@ -108,12 +54,25 @@ const app = createApp({
       await fetch("{{ api_variant_get }}")
         .then((response) => response.json())
         .then((result) => (
-          url_image.value = result.url_image, 
-          datetime.value = result.datetime,
-          rotation.value = result.rotation+" deg",
-          flip_vertically.value = result.flip_vertically,
-          flip_horizontally.value = result.flip_horizontally
-        )); 
+            url_image.value = result.url_image, 
+            datetime.value = result.datetime,
+            rotation.value = result.rotation+" deg",
+            mirror.value = result.mirror,
+	    ratings_overall.value = result.ratings_overall,
+	    ratings_aesthetics.value = result.ratings_aesthetics,
+	    ratings_emotions.value = result.ratings_emotions,
+	    ratings_rarity.value = result.ratings_rarity
+        ))
+	.then(() => {
+	    watch([
+		ratings_overall,
+		ratings_aesthetics,
+		ratings_emotions,
+		ratings_rarity,
+	    ], ([newA, newB, newC, newD], [prevA, prevB, prevC, prevD]) => {
+		ratings_change.value = true
+	    });
+	}); 
       });
       function set_datetime(input_id) {
         value = document.getElementById(input_id).value
@@ -140,16 +99,10 @@ const app = createApp({
           alert('API call error: '+error)
         })
       }
-      function img_flip(input_id) {
+      function img_mirror(input_id) {
         checked = document.getElementById(input_id).checked
         console.log(input_id, checked)
-        if (input_id=='img_flip_vertical') {
-          data = {flip_vertically: !checked}
-        }
-        if (input_id=='img_flip_horizontal') {
-          data = {flip_horizontally: !checked}
-        }
-        axios.post("{{ api_variant_set }}", data)
+        axios.post("{{ api_variant_set }}", {mirror: !checked})
         .then(function (response) {
           ts = new Date().getTime()
           url_image.value = response.data.url_image+"?"+ts
@@ -161,10 +114,26 @@ const app = createApp({
       function to_clipboard(text) {
         navigator.clipboard.writeText(text);
       }
+      function update_ratings() {	  
+          axios.post("{{ api_variant_set }}", {
+              rating_overall: ratings_overall.value,
+              rating_aesthetics: ratings_aesthetics.value,
+              rating_emotions: ratings_emotions.value,
+              rating_rarity: ratings_rarity.value
+	  })
+          .then(function (response) {
+	    ratings_change.value = false
+          })
+          .catch(function (error) {
+            alert('API call error: '+error)
+          })
+      }
       return {
           variant_list, url_image, datetime, set_datetime,
-          to_clipboard, image_rotate, rotation, img_flip,
-          flip_vertically, flip_horizontally
+          to_clipboard, image_rotate, rotation, img_mirror,
+          mirror, ratings_change,
+	  ratings_overall, ratings_aesthetics, ratings_rarity, ratings_emotions,
+	  update_ratings
       }
   }
 })

@@ -1,0 +1,17 @@
+<div class="row">
+  <div class="col-12 pt-2">
+    <div class="row">
+      <div class="col-6"><h4>Available variants</h4></div>
+      <div class="col-6">
+	<a class="btn btn-secondary btn-sm float-end" href="{{ url_photo_comparison }}">
+	  Get variants <i class="bi bi-images"></i>
+	</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-4" v-for="item in variant_list" v-if="variant_list">
+     <a :href="item.variant_link">
+	<img :src="item.file_path" alt="thumbnail" class="img-thumbnail">
+     </a>
+  </div>
+</div>

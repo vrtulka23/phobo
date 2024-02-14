@@ -8,13 +8,17 @@
       <dir class="col-10">{{ dir_import }}</dir>
       <dir class="col-md-2 fw-bold">Photos directory:</dir>
       <dir class="col-10">{{ dir_photos }}</dir>
-      <dir class="col-md-2 fw-bold">Database file:</dir>
-      <dir class="col-10">{{ file_database }}</dir>
+      <dir class="col-md-2 fw-bold">Photos database:</dir>
+      <dir class="col-10">{{ file_database1 }}</dir>
+      <dir class="col-md-2 fw-bold">Variants database:</dir>
+      <dir class="col-10">{{ file_database2 }}</dir>
     </dir>
   </div>
 </div>
 
 <script>
+//import MyComponent from './vue/test.vue'
+
 const { createApp, ref } = Vue
 
 const app = createApp({

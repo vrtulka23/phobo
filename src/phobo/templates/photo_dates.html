@@ -1,0 +1,21 @@
+<div class="row">
+  <div class="col-md-12">
+      <h3>Time stamp options</h3>
+      <table class="table table-sm">
+	  <tr>
+	    <th class="align-middle">Custom date</th>
+	    <td><input type="text" class="form-control form-control-sm" placeholder="YYYY-MM-DD HH:MM:SS" id="datetime_input"></td>
+	    <td>
+	      <button class="btn btn-primary btn-sm float-end" @click="set_datetime('datetime_input')"><i class="bi bi-calendar-check"></i></button>
+	    </td>
+	  </tr>
+	  {% for datetime_id, name, date in dates %}
+	  <tr>
+	    <th>{{ name }}</th>
+	    <td>{{ date }}<input type="hidden" value="{{ date }}" id="{{ datetime_id }}"></td>
+	    <td><button class="btn btn-primary btn-sm float-end" @click="set_datetime('{{ datetime_id }}')"><i class="bi bi-calendar-check"></i></button></td>
+	    </tr>
+	  {% endfor %}
+      </table>
+  </div>
+</div>

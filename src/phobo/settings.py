@@ -31,3 +31,5 @@ THUMBNAIL_SIZE     = 400                         # resolution of a thumbnail ima
 THUMBNAIL_NAME     = "thumbnail.png"             # thumbnail image name
 THUMBNAIL_TYPE     = "PNG"                       # PIL image type
 THUMBNAIL_MIMETYPE = 'image/png'                 # image mime type
+
+VUE_MIMETYPE       = 'text/javascript'

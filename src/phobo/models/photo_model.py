@@ -29,176 +29,112 @@ class PhotoModel:
             os.makedirs(DIR_PHOTOS)
 
     def count(self):
+        registered = 0
+        unregistered = 0
+        for data in self.list_files():
+            if data['registered']:
+                registered += 1
+            else:
+                unregistered += 1
         return dict(
-            registered   = len(self.list_registered()),
-            unregistered = len(self.list_unregistered())
+            registered   = registered,
+            unregistered = unregistered,
         )
     
-    def get_dir(self, doc_id:int, variant_id:str=None):
-        if variant_id:
-            return f"{DIR_PHOTOS}/photo-{doc_id}/variant-{variant_id}"
-        else:
-            return f"{DIR_PHOTOS}/photo-{doc_id}"
-    
-    def get_photo(self, doc_id:int):
+    def get_photo(self, photo_id:int=None, variant_id:int=None):
         with TinyDB(DB_PHOTOS) as db:
-            return db.get(doc_id=doc_id)
-        
-    def update_variant(self, doc_id:int, variant_id:str, data:dict):
-        # find variant and its current index
-        with TinyDB(DB_PHOTOS) as db:
-            doc = db.get(doc_id=doc_id)
-        for i,variant in enumerate(doc['variants']):
-            if variant['variant_id'].startswith(variant_id):
-                break
-        else:
-            raise Exception("Photo variant could not be found:", doc_id, variant_id)
-        # modify new data
-        if 'datetime' in data:
-            try:
-                data['datetime'] = datetime.strptime(data['datetime'], FORMAT_DATE).timestamp()
-            except:
-                raise Exception("Invalid datetime format:", data['datetime'], FORMAT_DATE)
-        if 'rotation' in data:
-            data['rotation'] += doc['variants'][i]['rotation']
-            if data['rotation']<0: data['rotation'] += 360
-            if data['rotation']>=360: data['rotation'] -= 360
-        # update document
-        Photo = Query()
-        def update_variant(data, i):
-            def transform(doc):
-                doc['variants'][i].update(data)
-            return transform
-        with TinyDB(DB_PHOTOS) as db:
-            db.update(update_variant(data, i), doc_ids=[int(doc_id)])
-            if 'rotation' in data or 'flip_vertically' in data or 'flip_horizontally' in data:
-                doc = db.get(doc_id=doc_id)
-                with VariantModel(doc, variant_id) as var:
-                    variant = var.data()
-                file_original = f"{DIR_IMPORT}/{variant['name_original']}"
-                dir_variant = self.get_dir(doc_id, variant['variant_id'])
-                file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
-                with ImageModel(file_original) as img:
-                    img.thumbnail(file_thumbnail, {
-                        'rotation': variant['rotation'],
-                        'flip_vertically': variant['flip_vertically'],
-                        'flip_horizontally': variant['flip_horizontally'],
-                    })
-        
-    def list_registered(self, variant:bool=False):
-        with TinyDB(DB_PHOTOS) as db:
-            docs = db.all()
-        if variant:
-            for i in range(len(docs)):
-                doc[i]['variant_index'], doc[i]['variant'] = self._find_variant(doc[i])
-        return docs
-        
-    def list_unregistered(self):
-        Photo, Variant = Query(), Query()
-        file_list = []
-        with TinyDB(DB_PHOTOS) as db:
-            for file_path in glob.glob(f"{DIR_IMPORT}/**", recursive=True):            
-                if os.path.isdir(file_path):
-                    continue
-                with ImageModel(file_path) as img:
-                    if img.im is None:
-                        continue
-                    else:
-                        image_format = img.image_format
-                file_name = str(Path(file_path).relative_to(DIR_IMPORT))
-                if db.count(Photo.variants.any(Variant.name_original==file_name)):
-                    continue
-                file_list.append(dict(file_name=file_name, image_format=image_format))
-        return file_list
+            if variant_id is None:
+                return db.get(doc_id=photo_id)
+            elif photo_id is None:
+                Photo = Query()
+                def has_variant(val, m):
+                    return m in val
+                return db.get(Photo.variants.test(has_variant, variant_id))
+            else:
+                raise Exception("Either photo_id or variant_id has to be given:", photo_id, variant_id)
 
-    def _variant_id(self, file_name:str):
-        json_string = json.dumps({
-            'name':      file_name,
-            'timestamp': time.time()
-        }, sort_keys=True)
-        hash_object = hashlib.sha256()
-        hash_object.update(json_string.encode())
-        return hash_object.hexdigest()
-       
-    def _image_info(self, file_original:str):
-        # Get basic image data
-        with ImageModel(file_original) as img:
-            data = dict(
-                image_size      = img.image_size,
-                image_format    = img.image_format,
-                file_created    = img.file_created,
-                file_modified   = img.file_modified,
-                file_size       = img.file_size,
-                exif            = img.exif_data(),
-                file_path_dates = img.path_dates(),
-            )
-        # Set the most relevat photo datetime
-        if data['exif'] and 'DateTime' in data['exif'] and data['exif']['DateTime']:
-            data['datetime'] = datetime.strptime(data['exif']['DateTime'], FORMAT_DATE_EXIF).timestamp()
-        elif data['exif'] and 'CreateDate' in data['exif'] and data['exif']['CreateDate']:
-            data['datetime'] = datetime.strptime(data['exif']['CreateDate'], FORMAT_DATE_EXIF).timestamp()
-        elif data['exif'] and 'DateTimeOriginal' in data['exif'] and data['exif']['DateTimeOriginal']:
-            data['datetime'] = datetime.strptime(data['exif']['DateTimeOriginal'], FORMAT_DATE_EXIF).timestamp()
-        elif data['file_path_dates']:
-            data['datetime'] = float(min(data['file_path_dates']))
-        else:
-            data['datetime'] = float(data['file_created'])
-        return data
+    def list_photos(self):
+        with TinyDB(DB_PHOTOS) as db:
+            return db.all()
+            
+    def list_files(self):
+        Variant = Query()
+        file_list = []
+        var = TinyDB(DB_VARIANTS)
+        for file_path in glob.glob(f"{DIR_IMPORT}/**", recursive=True):
+            if os.path.isdir(file_path):
+                continue
+            with ImageModel(file_path) as img:
+                if img.im is None:
+                    continue
+                else:
+                    image_format = img.image_format
+            file_name = str(Path(file_path).relative_to(DIR_IMPORT))
+            if doc:=var.get(Variant.name_original==file_name):
+                file_list.append(dict(
+                    registered=True,
+                    file_name=file_name,
+                    image_format=image_format,
+                    variant_id = doc.doc_id
+                ))
+            else:
+                file_list.append(dict(
+                    registered=False,
+                    file_name=file_name,
+                    image_format=image_format,
+                ))
+        var.close()
+        return file_list
     
     def add(self, file_name_original:str=None, doc_id:int=None):
         if doc_id is not None:
-            file_list = self.list_unregistered()
+            file_list = self.list_files()
             file_name_original = file_list[doc_id]['file_name']
         elif not file_name_original:
             raise Exception("Filename or file index has to be set:", file_name_original, doc_id)
-        file_original = f"{DIR_IMPORT}/{file_name_original}"
-        if not os.path.isfile(file_original):
-            raise Exception('Followng file is not present in the inport directory:', file_name_original)
         # create variant id
-        variant_id = self._variant_id(file_name_original)
+        with VariantModel() as var:
+            variant_id = var.add(file_name_original)
         # insert reccord into the database
         with TinyDB(DB_PHOTOS) as db:
             doc_id = db.insert({
                 'variant_id': variant_id,
-                'variants': [{
-                    'variant_id': variant_id,
-                    'name_original': file_name_original,
-                    'rotation': 0,
-                    'flip_vertically': False,
-                    'flip_horizontally': False,
-                } | self._image_info(file_original)]
+                'variants': [variant_id]
             })
-        # create photos and variant directories
-        dir_variant = self.get_dir(doc_id, variant_id)
-        os.makedirs(dir_variant)
-        # create a thumbnail image
-        file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
-        with ImageModel(file_original) as img:
-            img.thumbnail(file_thumbnail)
         # return document ID
         return doc_id
         
     def add_all(self):
         doc_ids = []
-        file_list = self.list_unregistered()
-        for item in file_list:
+        for item in self.list_files():
+            if item['registered']:
+                continue
             doc_ids.append( self.add(item['file_name']) )
         return doc_ids
         
-    def remove(self, doc_id:int=None):
+    def remove(self, variant_id:int=None):
         # remove database reccord
-        with TinyDB(DB_PHOTOS) as db:
-            if db.contains(doc_id=doc_id):
-                db.remove(doc_ids=[doc_id])
-        # delete directory
-        dir_photo = self.get_dir(doc_id)
-        if os.path.isdir(dir_photo):
-            shutil.rmtree(dir_photo)
-        return doc_id
+        with VariantModel() as var:
+            var.remove(variant_id)
+        photo = self.get_photo(variant_id=variant_id)
+        if len(photo['variants'])>1:
+            photo['variants'].remove(variant_id)
+            new_variants = photo['variants']
+            print(new_variants)
+            if photo['variant_id'] == variant_id:
+                new_variant_id = new_variants[0]
+                print(new_variant_id)
+            raise Exception('not implemented')
+        else:
+            with TinyDB(DB_PHOTOS) as db:
+                db.remove(doc_ids=[photo.doc_id])        
+        return None
 
     def remove_all(self):
         doc_ids = []
-        for doc in self.list_registered():
-            doc_ids.append( self.remove( doc.doc_id ) )
+        for item in self.list_files():
+            if not item['registered']:
+                continue
+            doc_ids.append( self.remove( item['variant_id'] ) )
         return doc_ids
         

@@ -8,6 +8,9 @@ register_heif_opener()
 
 from ..settings import *
 
+ROTATIONS = {"1":0,"2":180,"3":180,"4":0,"5":90,"6":90,"7":270,"8":270}
+MIRRORS = {"1":False,"2":True,"3":False,"4":True,"5":True,"6":False,"7":True,"8":False}
+
 class ImageModel:
 
     file_path: str
@@ -41,7 +44,8 @@ class ImageModel:
         except:
             pass
 
-    def thumbnail(self, file_thumbnail:str, settings:dict={}):
+    def thumbnail(self, file_thumbnail:str, orientation:int):
+        # resize original image
         if self.im.size[0]>self.im.size[1]:
             size1 = THUMBNAIL_SIZE
             size2 = int(THUMBNAIL_SIZE*self.im.size[1]/self.im.size[0])
@@ -50,17 +54,24 @@ class ImageModel:
             size1 = int(THUMBNAIL_SIZE*self.im.size[0]/self.im.size[1])
             size2 = THUMBNAIL_SIZE
             self.im = self.im.resize((size1, size2))
+        # create rescaled version for comparison
+        im = self.im.resize((THUMBNAIL_SIZE, THUMBNAIL_SIZE), Image.Resampling.LANCZOS)
+        file_comparison = Path(file_thumbnail).parent/"comparison.png"
+        if MIRRORS[str(orientation)]:
+            im = ImageOps.mirror(im)
+        if ROTATIONS[str(orientation)]:
+            im = im.rotate(-ROTATIONS[str(orientation)])
+        im.convert('L').save(file_comparison, "PNG")
+        # create thumbnail on a white background
         with Image.new('RGB', (THUMBNAIL_SIZE,THUMBNAIL_SIZE), color='white') as thumb:
             thumb.paste(self.im, (
                 int((THUMBNAIL_SIZE-self.im.size[0])/2), 
                 int((THUMBNAIL_SIZE-self.im.size[1])/2)
             ))
-            if 'rotation' in settings and settings['rotation']>0:
-                thumb = thumb.rotate(-settings['rotation'])
-            if 'flip_vertically' in settings and settings['flip_vertically']:
+            if MIRRORS[str(orientation)]:
                 thumb = ImageOps.mirror(thumb)
-            if 'flip_horizontally' in settings and settings['flip_horizontally']:
-                thumb = ImageOps.flip(thumb)
+            if ROTATIONS[str(orientation)]:
+                thumb = thumb.rotate(-ROTATIONS[str(orientation)])
             thumb.save(file_thumbnail, THUMBNAIL_TYPE)
 
     def exif_data(self):

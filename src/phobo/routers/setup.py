@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, jsonify, request, url_for
 
 from ..settings import *
 from ..models.photo_model import PhotoModel
+from ..models.variant_model import VariantModel
 
 setup_page = Blueprint(
     'setup_page', 
@@ -25,8 +26,8 @@ def get_counts():
         counts = p.count()
     return jsonify(counts)
     
-@setup_page.route('/api/setup/remove_registered', methods=['GET'])
-def remove_registered():
+@setup_page.route('/api/setup/remove_item', methods=['GET'])
+def remove_item():
     with PhotoModel() as p:
         doc_id = request.args.get('doc_id')
         if doc_id:
@@ -36,8 +37,8 @@ def remove_registered():
         counts = p.count()
     return jsonify(counts)
     
-@setup_page.route('/api/setup/add_unregistered', methods=['GET'])
-def add_unregistered():
+@setup_page.route('/api/setup/add_item', methods=['GET'])
+def add_item():
     with PhotoModel() as p:
         doc_id = request.args.get('doc_id')
         if doc_id:
@@ -46,6 +47,37 @@ def add_unregistered():
             p.add_all()
         counts = p.count()
     return jsonify(counts)
+
+@setup_page.route('/api/setup/show_files')
+def show_files():
+    p = PhotoModel()
+    data = []
+    for i, item in enumerate(p.list_files()):
+        url_image = url_for(
+            'photo_page.api_imports',
+            file_name = item['file_name'],
+        )
+        if item['registered']:
+            url_photo = url_for(
+                'photo_page.photo_preview',
+                doc_id = p.get_photo(variant_id=item['variant_id']).doc_id,
+                variant_id = item['variant_id'],
+            )
+        else:
+            url_photo = None
+        data.append({
+            'item_id':       i+1,
+            'variant_id':    item['variant_id'] if item['registered'] else 0,
+            'name':          item['file_name'],
+            'format':        item['image_format'],
+            'registered':    item['registered'],
+            'url_image':     url_image,
+            'url_photo':     url_photo,
+        })
+    return jsonify({
+        'data': data,
+        'type': 'unregistered'
+    })
 
 @setup_page.route('/api/setup/show_unregistered')
 def show_unregistered():
@@ -73,9 +105,8 @@ def show_registered():
     with PhotoModel() as p:
         data = []
         for doc in p.list_registered():
-            for variant in doc['variants']:
-                if variant['variant_id']==doc['variant_id']:
-                    break
+            with VariantModel() as var:
+                variant = var.get(doc['variant_id'])
             url_image = url_for(
                 'photo_page.api_imports',
                 file_name = variant['name_original'],
@@ -83,11 +114,11 @@ def show_registered():
             url_photo = url_for(
                 'photo_page.photo_preview',
                 doc_id = doc.doc_id,
-                variant_id = doc['variant_id'][:VARIANT_ID_CUT],
+                variant_id = doc['variant_id'],
             )
             data.append({
                 'doc_id':        doc.doc_id,
-                'variant_id':    doc['variant_id'][:VARIANT_ID_CUT],
+                'variant_id':    doc['variant_id'],
                 'name':          variant['name_original'],
                 'format':        variant['image_format'],
                 'url_image':     url_image,

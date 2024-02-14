@@ -1,0 +1,20 @@
+<div class="row">
+  <div class="col-md-12">
+      <h3>Image info</h3>
+      <table class="table table-sm">
+	<tr><th>Variant ID</th><td>
+	  <span class="d-inline-block text-truncate" style="max-width: 250px;" title="{{ variant_id }}">{{ variant_id }}</span>
+	</td></tr>
+	<tr><th class="align-middle">File path</th><td>
+	  <a href="{{ api_file_original }}">
+	    <span class="d-inline-block text-truncate align-middle" style="max-width: 250px;" title="{{ file_path }}">{{ file_path }}</span>
+	  </a>
+	  <button class="btn btn-primary btn-sm float-end" @click="to_clipboard('{{ file_path }}')"><i class="bi bi-copy"></i></button>
+	</td></tr>
+	<tr><th>File size</th><td>{{ file_size }}</td></tr>
+	<tr><th>Image size</th><td>{{ image_size }}</td></tr>
+	<tr><th>Image format</th><td>{{ image_format }}</td></tr>
+	<tr><th>Time stamp</th><td>[[ datetime ]]</td></tr>
+      </table>
+  </div>
+</div>
