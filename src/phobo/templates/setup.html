@@ -74,7 +74,7 @@ const app = createApp({
   setup() {
       const registered_photos = ref({{ counts['registered'] }})
       const unregistered_photos = ref({{ counts['unregistered'] }})
-      const preview_url = ref("{{ url_for('setup_page.show_files') }}")
+      const preview_url = ref("{{ url_for('SetupRouter.show_files') }}")
       const preview_title = ref('')
       const preview_data = ref([])
       onMounted(async () => {
@@ -96,13 +96,13 @@ const app = createApp({
         })
       }
       function remove_item(variant_id=null) {
-        action("{{ url_for('setup_page.remove_item') }}", variant_id)
+        action("{{ url_for('SetupRouter.remove_item') }}", variant_id)
       }
       function add_item(item_id=null) {
-        action("{{ url_for('setup_page.add_item') }}", item_id)
+        action("{{ url_for('SetupRouter.add_item') }}", item_id)
       }
       function refresh_counts() {
-        action("{{ url_for('setup_page.get_counts') }}")
+        action("{{ url_for('SetupRouter.get_counts') }}")
       }
       function preview() {
         axios.get(preview_url.value)

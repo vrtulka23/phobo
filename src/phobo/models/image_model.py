@@ -1,12 +1,14 @@
 from pathlib import Path
 import re
 import os
+import numpy as np
 from datetime import datetime
 from PIL import Image, ExifTags, ImageOps
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
 from ..settings import *
+from .orb_model import ORBModel
 
 ROTATIONS = {"1":0,"2":180,"3":180,"4":0,"5":90,"6":90,"7":270,"8":270}
 MIRRORS = {"1":False,"2":True,"3":False,"4":True,"5":True,"6":False,"7":True,"8":False}
@@ -44,7 +46,7 @@ class ImageModel:
         except:
             pass
 
-    def thumbnail(self, file_thumbnail:str, orientation:int):
+    def thumbnail(self, dir_variant:str, orientation:int):
         # resize original image
         if self.im.size[0]>self.im.size[1]:
             size1 = THUMBNAIL_SIZE
@@ -54,14 +56,17 @@ class ImageModel:
             size1 = int(THUMBNAIL_SIZE*self.im.size[0]/self.im.size[1])
             size2 = THUMBNAIL_SIZE
             self.im = self.im.resize((size1, size2))
+        # retrieve feature detection data
+        im = np.asarray(self.im.convert('L'))
+        with ORBModel() as orb:
+            orb.dump(im, f"{dir_variant}/{ORB_DATA_FILE}")
         # create rescaled version for comparison
         im = self.im.resize((THUMBNAIL_SIZE, THUMBNAIL_SIZE), Image.Resampling.LANCZOS)
-        file_comparison = Path(file_thumbnail).parent/"comparison.png"
         if MIRRORS[str(orientation)]:
             im = ImageOps.mirror(im)
         if ROTATIONS[str(orientation)]:
             im = im.rotate(-ROTATIONS[str(orientation)])
-        im.convert('L').save(file_comparison, "PNG")
+        im.convert('L').save(f"{dir_variant}/{COMPARISON_NAME}", "PNG")
         # create thumbnail on a white background
         with Image.new('RGB', (THUMBNAIL_SIZE,THUMBNAIL_SIZE), color='white') as thumb:
             thumb.paste(self.im, (
@@ -72,7 +77,7 @@ class ImageModel:
                 thumb = ImageOps.mirror(thumb)
             if ROTATIONS[str(orientation)]:
                 thumb = thumb.rotate(-ROTATIONS[str(orientation)])
-            thumb.save(file_thumbnail, THUMBNAIL_TYPE)
+            thumb.save(f"{dir_variant}/{THUMBNAIL_NAME}", THUMBNAIL_TYPE)
 
     def exif_data(self):
         if self.im.format=='HEIF':

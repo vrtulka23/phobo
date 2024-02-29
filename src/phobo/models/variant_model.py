@@ -72,7 +72,8 @@ class VariantModel:
         # create a thumbnail image
         file_thumbnail = self.file_thumbnail(variant_id)
         with ImageModel(file_original) as img:
-            img.thumbnail(file_thumbnail, data['orientation'])
+            dir_variant = self.dir_variant(variant_id)
+            img.thumbnail(dir_variant, data['orientation'])
         return variant_id
 
     def remove(self, variant_id:int):
@@ -113,7 +114,6 @@ class VariantModel:
             else:
                 raise Exception('Orientation could not be determined', data['rotation'], data['mirror'])
         # update document
-        Variant = Query()
         with TinyDB(DB_VARIANTS) as db:
             variant = db.get(doc_id=variant_id)
             variant.update(data)
@@ -123,7 +123,8 @@ class VariantModel:
             file_original = self.file_original(variant['name_original'])
             file_thumbnail = self.file_thumbnail(variant_id)
             with ImageModel(file_original) as img:
-                img.thumbnail(file_thumbnail, variant['orientation'])
+                dir_variant = self.dir_variant(variant_id)
+                img.thumbnail(dir_variant, variant['orientation'])
         
     def dir_variant(self, variant_id:int):
         return f"{DIR_PHOTOS}/variant-{variant_id}"
@@ -133,6 +134,11 @@ class VariantModel:
         file_thumbnail = f"{dir_variant}/{THUMBNAIL_NAME}"
         return file_thumbnail
 
+    def file_comparison(self, variant_id:int):
+        dir_variant = self.dir_variant(variant_id)
+        file_comparison = f"{dir_variant}/{COMPARISON_NAME}"
+        return file_comparison
+    
     def file_original(self, file_name:str):
         return f"{DIR_IMPORT}/{file_name}"
         

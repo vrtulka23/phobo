@@ -7,25 +7,25 @@ from ..models.photo_model import PhotoModel
 from ..models.variant_model import VariantModel
 from ..models.image_model import ROTATIONS, MIRRORS
 
-photo_page = Blueprint(
-    'photo_page', 
+PhotoRouter = Blueprint(
+    'PhotoRouter', 
     __name__,
     template_folder='templates'
 )
 
 def url_thumbnail(variant_id:int):
     return url_for(
-       'photo_page.api_file_thumbnail', 
+       'PhotoRouter.api_file_thumbnail', 
         variant_id=variant_id
     )
 def url_variant(doc_id:int, variant_id:int):
     return url_for(
-        'photo_page.photo_preview',
+        'PhotoRouter.photo_preview',
         doc_id=doc_id,
         variant_id=variant_id,
     )
     
-@photo_page.route('/photo')
+@PhotoRouter.route('/photo')
 def photo_view():
     
     with PhotoModel() as p:
@@ -41,7 +41,7 @@ def photo_view():
         photo_list = data,
     )
     
-@photo_page.route("/photo-<doc_id>/variant-<variant_id>")
+@PhotoRouter.route("/photo-<doc_id>/variant-<variant_id>")
 def photo_preview(doc_id:int, variant_id:int):
     
     with PhotoModel() as p:
@@ -82,30 +82,23 @@ def photo_preview(doc_id:int, variant_id:int):
         PAGE_INDEX, 
         content_page = 'photo_preview.html', 
         doc_id = doc_id,
-        url_overview = url_for('photo_page.photo_view'),
+        url_overview = url_for('PhotoRouter.photo_view'),
         url_previous_photo = url_previous_photo,
         url_next_photo = url_next_photo,
-        url_photo_comparison = url_for('photo_page.photo_comparison', doc_id=doc_id),
+        url_photo_comparison = url_for('ComparisonRouter.photo_comparison', doc_id=doc_id),
         dates = dates,
         variant_id = variant_id,
         file_path = variant['name_original'],
         file_size = sizeof_fmt(variant['file_size']),
         image_size = variant['image_size'],
         image_format = variant['image_format'],
-        api_file_original = url_for('photo_page.api_file_original', variant_id=variant_id),
-        api_photo_data    = url_for('photo_page.api_photo_get', doc_id=doc_id),
-        api_variant_get   = url_for('photo_page.api_variant_get', variant_id=variant_id),
-        api_variant_set   = url_for('photo_page.api_variant_set', variant_id=variant_id),
-    )
-
-@photo_page.route("/photo-<doc_id>/comparison")
-def photo_comparison(doc_id:int):
-    return render_template(
-        PAGE_INDEX,
-        content_page = 'photo_comparison.html',
+        api_file_original = url_for('PhotoRouter.api_file_original', variant_id=variant_id),
+        api_photo_data    = url_for('PhotoRouter.api_photo_get', doc_id=doc_id),
+        api_variant_get   = url_for('PhotoRouter.api_variant_get', variant_id=variant_id),
+        api_variant_set   = url_for('PhotoRouter.api_variant_set', variant_id=variant_id),
     )
     
-@photo_page.route("/api/imports/<file_name>")
+@PhotoRouter.route("/api/imports/<file_name>")
 def api_imports(file_name):
     file_path = f"{DIR_IMPORT}/{file_name}"
     if os.path.isfile(file_path):
@@ -116,7 +109,7 @@ def api_imports(file_name):
     else:
         raise Exception("File could not be found:", file_path)
 
-@photo_page.route("/api/variant-<variant_id>/file/original")
+@PhotoRouter.route("/api/variant-<variant_id>/file/original")
 def api_file_original(variant_id:int):
     with VariantModel() as var:
         variant = var.get(variant_id)
@@ -129,7 +122,7 @@ def api_file_original(variant_id:int):
     else:
         raise Exception("Original file could not be found:", file_path)
     
-@photo_page.route("/api/variant-<variant_id>/file/thumbnail")
+@PhotoRouter.route("/api/variant-<variant_id>/file/thumbnail")
 def api_file_thumbnail(variant_id:int):
     with VariantModel() as var:
         variant = var.get(variant_id)
@@ -139,7 +132,7 @@ def api_file_thumbnail(variant_id:int):
     else:
         raise Exception("Thumbnail file could not be found:", file_path)
     
-@photo_page.route("/api/photo-<doc_id>/get")
+@PhotoRouter.route("/api/photo-<doc_id>/get")
 def api_photo_get(doc_id):
     with PhotoModel() as p:
         doc = p.get_photo(doc_id)
@@ -153,7 +146,7 @@ def api_photo_get(doc_id):
         variants = variants
     ))
     
-@photo_page.route("/api/variant-<variant_id>/get")
+@PhotoRouter.route("/api/variant-<variant_id>/get")
 def api_variant_get(variant_id:int):
     with VariantModel() as var:
         variant = var.get(variant_id)
@@ -168,7 +161,7 @@ def api_variant_get(variant_id:int):
         ratings_rarity = variant['rating_rarity'],
     ))
     
-@photo_page.route("/api/variant-<variant_id>/set", methods=['POST'])
+@PhotoRouter.route("/api/variant-<variant_id>/set", methods=['POST'])
 def api_variant_set(variant_id:int):
     with VariantModel() as var:
         var.update(variant_id, request.json)

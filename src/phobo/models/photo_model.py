@@ -85,6 +85,15 @@ class PhotoModel:
                 ))
         var.close()
         return file_list
+
+    def add_from_variant(self, variant_id:int):
+        with TinyDB(DB_PHOTOS) as db:
+            doc_id = db.insert({
+                'variant_id': variant_id,
+                'variants': [variant_id]
+            })
+        # return document ID
+        return doc_id        
     
     def add(self, file_name_original:str=None, doc_id:int=None):
         if doc_id is not None:
@@ -95,14 +104,7 @@ class PhotoModel:
         # create variant id
         with VariantModel() as var:
             variant_id = var.add(file_name_original)
-        # insert reccord into the database
-        with TinyDB(DB_PHOTOS) as db:
-            doc_id = db.insert({
-                'variant_id': variant_id,
-                'variants': [variant_id]
-            })
-        # return document ID
-        return doc_id
+        return self.add_from_variant(variant_id)
         
     def add_all(self):
         doc_ids = []
@@ -111,30 +113,39 @@ class PhotoModel:
                 continue
             doc_ids.append( self.add(item['file_name']) )
         return doc_ids
-        
-    def remove(self, variant_id:int=None):
-        # remove database reccord
+    
+    def remove_variant(self, variant_id:int=None):
+        # Update or remove photo reccord
+        photo = self.get_photo(variant_id=variant_id)
+        with TinyDB(DB_PHOTOS) as db:
+            if len(photo['variants'])>1:
+                photo['variants'].remove(variant_id)
+                if photo['variant_id'] == variant_id:
+                    photo['variant_id'] = photo['variants'][0]
+                db.update(photo, doc_ids=[photo.doc_id])
+            else:
+                db.remove(doc_ids=[photo.doc_id])
+        # Remove variant
         with VariantModel() as var:
             var.remove(variant_id)
-        photo = self.get_photo(variant_id=variant_id)
-        if len(photo['variants'])>1:
-            photo['variants'].remove(variant_id)
-            new_variants = photo['variants']
-            print(new_variants)
-            if photo['variant_id'] == variant_id:
-                new_variant_id = new_variants[0]
-                print(new_variant_id)
-            raise Exception('not implemented')
-        else:
-            with TinyDB(DB_PHOTOS) as db:
-                db.remove(doc_ids=[photo.doc_id])        
         return None
 
-    def remove_all(self):
+    def remove_all_variants(self):
         doc_ids = []
         for item in self.list_files():
             if not item['registered']:
                 continue
-            doc_ids.append( self.remove( item['variant_id'] ) )
+            doc_ids.append( self.remove_variant( item['variant_id'] ) )
         return doc_ids
         
+    def remove_photo(self, photo_id:int=None):
+        # remove database reccord
+        with TinyDB(DB_PHOTOS) as db:
+            db.remove(doc_ids=[int(photo_id)])        
+        return None
+    
+    def update(self, photo_id:int, data:dict):
+        with TinyDB(DB_PHOTOS) as db:
+            photo = db.get(doc_id=photo_id)
+            photo.update(data)
+            db.update(photo, doc_ids=[int(photo_id)])

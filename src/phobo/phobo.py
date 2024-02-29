@@ -9,12 +9,12 @@ import os
 from datetime import datetime
 
 from .settings import *
-from .routers.setup import setup_page
-from .routers.photo import photo_page
+from .routers import SetupRouter, PhotoRouter, ComparisonRouter
 
 app = Flask(__name__)
-app.register_blueprint(setup_page)
-app.register_blueprint(photo_page)
+app.register_blueprint(SetupRouter)
+app.register_blueprint(PhotoRouter)
+app.register_blueprint(ComparisonRouter)
 
 @app.route("/")
 def index():

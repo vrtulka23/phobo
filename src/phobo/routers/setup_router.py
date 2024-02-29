@@ -4,13 +4,13 @@ from ..settings import *
 from ..models.photo_model import PhotoModel
 from ..models.variant_model import VariantModel
 
-setup_page = Blueprint(
-    'setup_page', 
+SetupRouter = Blueprint(
+    'SetupRouter', 
     __name__,
     template_folder='templates'
 )
 
-@setup_page.route('/setup')
+@SetupRouter.route('/setup')
 def setup_view():
     with PhotoModel() as p:
         counts = p.count()
@@ -20,24 +20,24 @@ def setup_view():
         counts = counts,
     )
     
-@setup_page.route('/api/setup/get_counts')
+@SetupRouter.route('/api/setup/get_counts')
 def get_counts():
     with PhotoModel() as p:
         counts = p.count()
     return jsonify(counts)
     
-@setup_page.route('/api/setup/remove_item', methods=['GET'])
+@SetupRouter.route('/api/setup/remove_item', methods=['GET'])
 def remove_item():
     with PhotoModel() as p:
         doc_id = request.args.get('doc_id')
         if doc_id:
-            p.remove(int(doc_id))
+            p.remove_variant(int(doc_id))
         else:
-            p.remove_all()
+            p.remove_all_variants()
         counts = p.count()
     return jsonify(counts)
     
-@setup_page.route('/api/setup/add_item', methods=['GET'])
+@SetupRouter.route('/api/setup/add_item', methods=['GET'])
 def add_item():
     with PhotoModel() as p:
         doc_id = request.args.get('doc_id')
@@ -48,18 +48,18 @@ def add_item():
         counts = p.count()
     return jsonify(counts)
 
-@setup_page.route('/api/setup/show_files')
+@SetupRouter.route('/api/setup/show_files')
 def show_files():
     p = PhotoModel()
     data = []
     for i, item in enumerate(p.list_files()):
         url_image = url_for(
-            'photo_page.api_imports',
+            'PhotoRouter.api_imports',
             file_name = item['file_name'],
         )
         if item['registered']:
             url_photo = url_for(
-                'photo_page.photo_preview',
+                'PhotoRouter.photo_preview',
                 doc_id = p.get_photo(variant_id=item['variant_id']).doc_id,
                 variant_id = item['variant_id'],
             )
@@ -79,7 +79,7 @@ def show_files():
         'type': 'unregistered'
     })
 
-@setup_page.route('/api/setup/show_unregistered')
+@SetupRouter.route('/api/setup/show_unregistered')
 def show_unregistered():
     with PhotoModel() as p:
         data = []
@@ -100,7 +100,7 @@ def show_unregistered():
         'type': 'unregistered'
     })
 
-@setup_page.route('/api/setup/show_registered')
+@SetupRouter.route('/api/setup/show_registered')
 def show_registered():
     with PhotoModel() as p:
         data = []
