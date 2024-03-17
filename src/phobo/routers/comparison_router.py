@@ -33,6 +33,7 @@ def photo_comparison(doc_id:int):
         api_add_variant = url_for('ComparisonRouter.api_add_variant', photo_id=doc_id),
         api_remove_variant = url_for('ComparisonRouter.api_remove_variant', photo_id=doc_id),
         api_set_variant = url_for('ComparisonRouter.api_set_variant', photo_id=doc_id),
+        api_set_filter = url_for('ComparisonRouter.api_set_filter', photo_id=doc_id),
     )
 
 @ComparisonRouter.route("/api/photo-<doc_id>/list/variants")
@@ -54,38 +55,51 @@ def api_list_variants(doc_id:int):
             main = variant_id==photo['variant_id'],
             url_variant_preview=url_for('PhotoRouter.photo_preview', variant_id=variant_id, doc_id=doc_id),
         ))
-    #rc = RowCollector(['variant_id','url_image','url_photo','mse_score','ssim_score','orb_score'])
-    rc = RowCollector(['photo_id','variant_id','url_image','url_comparison','url_photo','orb_score','num_variants'])
+    rc = RowCollector([
+        'photo_id','variant_id','num_variants',
+        'url_image','url_comparison','url_photo',
+        'mse_score','ssim_score','orb_score',
+    ])
     for sim in similar:
         if sim['variant_id']==photo['variant_id']:
             continue
         with VariantModel() as var:
             file_photo1 = var.file_comparison(sim['variant_id'])
             dir_variant = var.dir_variant(sim['variant_id'])
-        #im1 = np.asarray(Image.open(file_photo1))
+        im1 = np.asarray(Image.open(file_photo1))
         kp1,des1 = orb.load(f"{dir_variant}/{ORB_DATA_FILE}")
         orb_score = orb.compare(kp0,des0,kp1,des1)
-        #mse_score = mean_squared_error(im0, im1)
-        #ssim_score = ssim(im0, im1, data_range=im1.max() - im1.min())
+        mse_score = mean_squared_error(im0, im1)
+        ssim_score = ssim(im0, im1, data_range=im1.max() - im1.min())
         rc.append([
             sim.doc_id,
             sim['variant_id'],
+            len(sim['variants']),
             url_for('PhotoRouter.api_file_thumbnail', variant_id=sim['variant_id']),
             url_for('ComparisonRouter.photo_comparison', doc_id=sim.doc_id),
             url_for('PhotoRouter.photo_preview', variant_id=sim['variant_id'], doc_id=sim.doc_id),
-            #round(mse_score,1),
-            #round(ssim_score,2),
+            round(mse_score,1),
+            round(ssim_score,2),
             round(orb_score,2),
-            len(sim['variants']),
         ])
     df = rc.to_dataframe()
     #df = df.sort_values(['orb_score','ssim_score','mse_score'],ascending=[False,False,True])
     df = df.sort_values(['orb_score'],ascending=[False])
-    similar_list = [dict(row) for index, row in df.iterrows() if row.orb_score>ORB_THRESHOLD]
+    similar_list = []
+    comparison = photo['comparison']
+    for index, row in df.iterrows():
+        if 'mse' in comparison and row.mse_score>=comparison['mse']:
+            continue
+        if 'ssim' in comparison and row.ssim_score<=comparison['ssim']:
+            continue
+        if 'orb' in comparison and row.orb_score<=comparison['orb']:
+            continue
+        similar_list.append(dict(row))
     return jsonify(dict(
         url_image = url_for('PhotoRouter.api_file_thumbnail', variant_id=photo['variant_id']),
         variant_list = variant_list,
         similar_list = similar_list,
+        comparison = photo['comparison'],
     ))
 
 @ComparisonRouter.route("/api/photo-<photo_id>/variant/add", methods=['POST'])
@@ -123,4 +137,15 @@ def api_set_variant(photo_id:int):
     with PhotoModel() as p:
         print(photo_id, variant_id)
         p.update(photo_id, {'variant_id':variant_id})
+    return api_list_variants(photo_id)
+
+@ComparisonRouter.route("/api/photo-<photo_id>/filter/set", methods=['POST'])
+def api_set_filter(photo_id:int):    
+    comparison = {}
+    for sim in ['mse','ssim','orb']:
+        if sim in request.json and request.json[sim]['checked']:
+            comparison[sim] = float(request.json[sim]['threshold'])
+    print(comparison)
+    with PhotoModel() as p:
+        p.update(photo_id, {'comparison':comparison})
     return api_list_variants(photo_id)

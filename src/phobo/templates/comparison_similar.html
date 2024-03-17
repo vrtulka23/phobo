@@ -9,10 +9,7 @@
 	  <img :src="item.url_image" alt="thumbnail" class="img-thumbnail">
 	</a>
       </div>
-      <div class="col-4">
-	<span class="badge text-bg-secondary">ORB: [[ item.orb_score ]]</span>
-      </div>
-      <div class="col-8">
+      <div class="col-7">
 	<div class="btn-group" role="group" aria-label="Variants">
 	  <a :href="item.url_photo" class="btn btn-secondary btn-sm float-end">
 	    <i class="bi bi-image"></i>
@@ -25,10 +22,13 @@
 	  </button>
 	</div>
       </div>
-      {#
-      <!--div class="col-4">SSIM: [[ item.ssim_score ]]</div>
-      <div class="col-4">MSE: [[ item.mse_score ]]</div-->
-      #}
+      <div class="col-5">
+	<span class="badge text-bg-light text-start">
+	  MSE: [[ item.mse_score ]]<br>
+	  SSIM: [[ item.ssim_score ]]<br>
+	  ORB: [[ item.orb_score ]]
+	</span>
+      </div>
     </div>
   </div>
 </div>

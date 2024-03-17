@@ -90,7 +90,10 @@ class PhotoModel:
         with TinyDB(DB_PHOTOS) as db:
             doc_id = db.insert({
                 'variant_id': variant_id,
-                'variants': [variant_id]
+                'variants': [variant_id],
+                'comparison': {
+                    'orb': 0.1,
+                },
             })
         # return document ID
         return doc_id        

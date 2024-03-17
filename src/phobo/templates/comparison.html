@@ -22,23 +22,39 @@
 </div>
 
 <script>
-const { createApp, ref, onMounted } = Vue
+const { toRaw, reactive, createApp, ref, onMounted } = Vue
 
 const app = createApp({
     setup() {
 	const url_image = ref()
 	const variant_list = ref()
 	const similar_list = ref()
-	const orb_threshold = ref(0.01)
+	const mse = reactive({threshold: 1000, checked: false})
+	const ssim = reactive({threshold: 0.25, checked: false})
+	const orb = reactive({threshold: 0.1, checked: false})
+	const comparison = ref()
 	onMounted(async () => {
 	    await fetch("{{ api_list_variants }}")
 		.then((response) => response.json())
 		.then((result) => (
 		    url_image.value = result.url_image,
 		    variant_list.value = result.variant_list,
-		    similar_list.value = result.similar_list
+		    similar_list.value = result.similar_list,
+		    comparison.value = result.comparison
 		))
 		.then(() => {
+		    if (Object.hasOwn(comparison.value, 'mse')) {
+			mse.threshold = comparison.value.mse
+			mse.checked = true
+		    }
+		    if (Object.hasOwn(comparison.value, 'ssim')) {
+			ssim.threshold = comparison.value.ssim
+			ssim.checked = true
+		    }
+		    if (Object.hasOwn(comparison.value, 'orb')) {
+			orb.threshold = comparison.value.orb
+			orb.checked = true
+		    }
 		    //setFixedPosition()
 		});
 	});
@@ -56,6 +72,21 @@ const app = createApp({
 	    elem.classList.add('fixed-top');
 	    elem.style.top = top+"px";
 	    elem.style.left = left+"px";
+	}
+	function set_filter() {
+	    axios.post("{{ api_set_filter }}", {
+		mse: toRaw(mse),
+		ssim: toRaw(ssim),
+		orb: toRaw(orb)
+	    })
+		.then(function (response) {
+		    url_image.value = response.data.url_image,
+		    variant_list.value = response.data.variant_list,
+		    similar_list.value = response.data.similar_list
+		})
+		.catch(function (error) {
+		    alert('API call error: '+error)
+		})
 	}
 	function set_variant(variant_id) {
 	    axios.post("{{ api_set_variant }}", {variant_id: variant_id})
@@ -92,7 +123,7 @@ const app = createApp({
 	}
 	return {
 	    url_image, variant_list, similar_list, add_variant, remove_variant, set_variant,
-	    orb_threshold
+	    orb, mse, ssim, set_filter
 	}
   }
 })
