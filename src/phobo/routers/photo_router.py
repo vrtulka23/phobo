@@ -33,7 +33,8 @@ def photo_view():
         for doc in p.list_photos():
             data.append(dict(
                 file_path = url_thumbnail(doc['variant_id']),
-                link = url_variant(doc.doc_id, doc['variant_id'])
+                link = url_variant(doc.doc_id, doc['variant_id']),
+                num_variants = len(doc['variants']),
             ))
     return render_template(
         PAGE_INDEX, 

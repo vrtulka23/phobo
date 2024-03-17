@@ -55,7 +55,7 @@ def api_list_variants(doc_id:int):
             url_variant_preview=url_for('PhotoRouter.photo_preview', variant_id=variant_id, doc_id=doc_id),
         ))
     #rc = RowCollector(['variant_id','url_image','url_photo','mse_score','ssim_score','orb_score'])
-    rc = RowCollector(['photo_id','variant_id','url_image','url_photo','orb_score','num_variants'])
+    rc = RowCollector(['photo_id','variant_id','url_image','url_comparison','url_photo','orb_score','num_variants'])
     for sim in similar:
         if sim['variant_id']==photo['variant_id']:
             continue
@@ -72,6 +72,7 @@ def api_list_variants(doc_id:int):
             sim['variant_id'],
             url_for('PhotoRouter.api_file_thumbnail', variant_id=sim['variant_id']),
             url_for('ComparisonRouter.photo_comparison', doc_id=sim.doc_id),
+            url_for('PhotoRouter.photo_preview', variant_id=sim['variant_id'], doc_id=sim.doc_id),
             #round(mse_score,1),
             #round(ssim_score,2),
             round(orb_score,2),

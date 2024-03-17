@@ -1,0 +1,31 @@
+<div class="row gx-2 gy-2" v-if="variant_list">
+  <div class="col-12">
+    <h3>Current variants</h3>
+  </div>
+  <div class="col-2" v-for="item in variant_list">
+    <div class="row gy-2">
+      <div class="col-12">
+	<a :href="item.url_variant_preview">
+	  <img :src="item.url_image" alt="thumbnail" class="img-thumbnail">
+	</a>
+      </div>
+      <div class="col-12">
+	<div class="btn-group" role="group" aria-label="Variants">
+	  <a href="{{ url_photo_preview }}" class="btn btn-secondary btn-sm">
+	    <i class="bi bi-image"></i>
+	  </a>
+	  <button class="btn btn-primary btn-sm"
+		  v-if="!item.main"
+		  @click="set_variant(item.variant_id)">
+	    <i class="bi bi-bookmark-star"></i>
+	  </button>
+	  <button class="btn btn-danger btn-sm"
+		  v-if="!item.main"
+		  @click="remove_variant(item.variant_id)">
+	    <i class="bi bi-dash-lg"></i>
+	  </button>
+	</div>
+      </div>	      
+    </div>
+  </div>
+</div>

@@ -11,6 +11,11 @@
         <a href="{{ photo.link }}">
           <img src="{{ photo.file_path }}" alt="thumbnail" class="img-thumbnail">
         </a>
+	{% if photo.num_variants>1 %}
+	<span class="badge rounded-pill text-bg-light">
+	  +{{photo.num_variants}} variants
+	</span>
+	{% endif %}
       </div>
       {% endfor %}
     </div>

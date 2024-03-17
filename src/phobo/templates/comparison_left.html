@@ -1,0 +1,12 @@
+<div class="row" id="photo_variant">
+  <div class="col-12">
+    <img v-bind:src="url_image" alt="thumbnail" class="img-thumbnail">
+  </div>
+  <div class="col-1">
+    <span class="badge text-bg-secondary">ORB: [[ orb_threshold ]]</span>
+  </div>
+  <div class="col-8">
+    <label for="input_orb_threshold" class="form-label">Orb trheshold</label>
+    <input type="text" class="form-text" v-model="orb_threshold" id="input_orb_threshold">
+  </div>
+</div>

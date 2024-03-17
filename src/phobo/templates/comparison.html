@@ -11,62 +11,11 @@
 	</a>
       </div>
       <div class="col-4">
-	<img v-bind:src="url_image" alt="thumbnail" class="img-thumbnail" id="photo_variant">
+	{% include "comparison_left.html" %}
       </div>
       <div class="col-8">
-	<div class="row gx-2 gy-2" v-if="variant_list">
-	  <div class="col-12">
-	    <h3>Current variants</h3>
-	  </div>
-	  <div class="col-2" v-for="item in variant_list">
-	    <div class="row gy-2">
-	      <div class="col-12">
-		<a :href="item.url_variant_preview">
-		  <img :src="item.url_image" alt="thumbnail" class="img-thumbnail">
-		</a>
-	      </div>
-	      <div class="col-12">
-		<a href="{{ url_photo_preview }}" class="btn btn-secondary btn-sm float-end">
-		  <i class="bi bi-image"></i>
-		</a>
-		<button class="btn btn-danger btn-sm float-end me-2"
-			v-if="!item.main"
-			@click="remove_variant(item.variant_id)">
-		  <i class="bi bi-dash-lg"></i>
-		</button>
-		<button class="btn btn-primary btn-sm float-end me-2"
-			v-if="!item.main"
-			@click="set_variant(item.variant_id)">
-		  <i class="bi bi-bookmark-star"></i>
-		</button>
-	      </div>	      
-	    </div>
-	  </div>
-	  <div class="col-12">
-	    <h3>Similar photos</h3>
-	  </div>
-	  <div class="col-4" v-for="item in similar_list">
-	    <div class="row gy-2">
-	      <div class="col-12">
-		<a :href="item.url_photo">
-		  <img :src="item.url_image" alt="thumbnail" class="img-thumbnail">
-		</a>
-	      </div>
-	      <div class="col-4">
-		<span class="badge text-bg-secondary">ORB: [[ item.orb_score ]]</span>
-	      </div>
-	      <div class="col-8">
-		<button class="btn btn-primary btn-sm float-end" @click="add_variant(item.photo_id)">
-		  <i class="bi bi-plus-lg"></i>&nbsp;[[ item.num_variants ]]
-		</button>
-	      </div>
-	      {#
-	      <!--div class="col-4">SSIM: [[ item.ssim_score ]]</div>
-	      <div class="col-4">MSE: [[ item.mse_score ]]</div-->
-	      #}
-	    </div>
-	  </div>
-	</div>
+	{% include "comparison_variants.html" %}
+	{% include "comparison_similar.html" %}
       </div>
     </div>
   </div>
@@ -80,6 +29,7 @@ const app = createApp({
 	const url_image = ref()
 	const variant_list = ref()
 	const similar_list = ref()
+	const orb_threshold = ref(0.01)
 	onMounted(async () => {
 	    await fetch("{{ api_list_variants }}")
 		.then((response) => response.json())
@@ -89,7 +39,7 @@ const app = createApp({
 		    similar_list.value = result.similar_list
 		))
 		.then(() => {
-		    setFixedPosition()
+		    //setFixedPosition()
 		});
 	});
 	function setFixedPosition() {
@@ -140,7 +90,10 @@ const app = createApp({
 		    alert('API call error: '+error)
 		})
 	}
-	return {url_image, variant_list, similar_list, add_variant, remove_variant, set_variant}
+	return {
+	    url_image, variant_list, similar_list, add_variant, remove_variant, set_variant,
+	    orb_threshold
+	}
   }
 })
 app.config.compilerOptions.delimiters = ['[[',']]']
