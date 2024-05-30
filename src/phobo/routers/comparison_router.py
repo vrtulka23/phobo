@@ -84,15 +84,20 @@ def api_list_variants(doc_id:int):
         ])
     df = rc.to_dataframe()
     #df = df.sort_values(['orb_score','ssim_score','mse_score'],ascending=[False,False,True])
-    df = df.sort_values(['orb_score'],ascending=[False])
     similar_list = []
     comparison = photo['comparison']
+    if comparison['sortby']=='mse':
+        df = df.sort_values(['mse_score'],ascending=[True])
+    elif comparison['sortby']=='ssim':
+        df = df.sort_values(['ssim_score'],ascending=[False])
+    elif comparison['sortby']=='orb':
+        df = df.sort_values(['orb_score'],ascending=[False])
     for index, row in df.iterrows():
-        if 'mse' in comparison and row.mse_score>=comparison['mse']:
+        if comparison['sortby']=='mse' and row.mse_score>=comparison['mse']:
             continue
-        if 'ssim' in comparison and row.ssim_score<=comparison['ssim']:
+        if comparison['sortby']=='ssim' and row.ssim_score<=comparison['ssim']:
             continue
-        if 'orb' in comparison and row.orb_score<=comparison['orb']:
+        if comparison['sortby']=='orb' and row.orb_score<=comparison['orb']:
             continue
         similar_list.append(dict(row))
     return jsonify(dict(
@@ -140,12 +145,11 @@ def api_set_variant(photo_id:int):
     return api_list_variants(photo_id)
 
 @ComparisonRouter.route("/api/photo-<photo_id>/filter/set", methods=['POST'])
-def api_set_filter(photo_id:int):    
-    comparison = {}
+def api_set_filter(photo_id:int):
+    comparison = {'sortby': request.json['sortby']}
     for sim in ['mse','ssim','orb']:
-        if sim in request.json and request.json[sim]['checked']:
+        if sim in request.json:
             comparison[sim] = float(request.json[sim]['threshold'])
-    print(comparison)
     with PhotoModel() as p:
         p.update(photo_id, {'comparison':comparison})
     return api_list_variants(photo_id)

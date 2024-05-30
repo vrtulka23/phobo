@@ -32,6 +32,7 @@ const app = createApp({
 	const mse = reactive({threshold: 1000, checked: false})
 	const ssim = reactive({threshold: 0.25, checked: false})
 	const orb = reactive({threshold: 0.1, checked: false})
+	const sortby = ref('orb')
 	const comparison = ref()
 	onMounted(async () => {
 	    await fetch("{{ api_list_variants }}")
@@ -43,6 +44,7 @@ const app = createApp({
 		    comparison.value = result.comparison
 		))
 		.then(() => {
+		    sortby.value = comparison.value['sortby']
 		    if (Object.hasOwn(comparison.value, 'mse')) {
 			mse.threshold = comparison.value.mse
 			mse.checked = true
@@ -77,7 +79,8 @@ const app = createApp({
 	    axios.post("{{ api_set_filter }}", {
 		mse: toRaw(mse),
 		ssim: toRaw(ssim),
-		orb: toRaw(orb)
+		orb: toRaw(orb),
+		sortby: sortby.value
 	    })
 		.then(function (response) {
 		    url_image.value = response.data.url_image,
@@ -123,7 +126,7 @@ const app = createApp({
 	}
 	return {
 	    url_image, variant_list, similar_list, add_variant, remove_variant, set_variant,
-	    orb, mse, ssim, set_filter
+	    orb, mse, ssim, set_filter, sortby
 	}
   }
 })

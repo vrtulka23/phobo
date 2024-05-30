@@ -7,36 +7,36 @@
   </div>
   <div class="col-4">
     <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="mse_threshold" id="mse_threshold" v-model="mse.checked">
+      <input class="form-check-input" type="radio" name="mse_threshold" id="mse_threshold" value="mse" v-model="sortby">
       <label class="form-check-label" for="mse_threshold">
-	MSE: [[ mse.threshold ]]
+	MSE < [[ mse.threshold ]]
       </label>
     </div> 
   </div>
   <div class="col-7">
-    <input type="range"  min="0" max="5000" step="100" v-model="mse.threshold" class="form-range" id="input_mse_threshold" :disabled="!mse.checked">
+    <input type="range"  min="0" max="5000" step="100" v-model="mse.threshold" class="form-range" id="input_mse_threshold" :disabled="sortby!='mse'">
   </div>
   <div class="col-4">
     <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="ssim_threshold" id="ssim_threshold" v-model="ssim.checked">
+      <input class="form-check-input" type="radio" name="ssim_threshold" id="ssim_threshold" value="ssim" v-model="sortby">
       <label class="form-check-label" for="ssim_threshold">
-	SSIM: [[ ssim.threshold ]]
+	SSIM > [[ ssim.threshold ]]
       </label>
     </div> 
   </div>
   <div class="col-7">
-    <input type="range"  min="0" max="1" step="0.01" v-model="ssim.threshold" class="form-range" id="input_ssim_threshold" :disabled="!ssim.checked">
+    <input type="range"  min="0" max="1" step="0.01" v-model="ssim.threshold" class="form-range" id="input_ssim_threshold" :disabled="sortby!='ssim'">
   </div>
   <div class="col-4">
     <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="orb_threshold" id="orb_threshold" v-model="orb.checked">
+      <input class="form-check-input" type="radio" name="orb_threshold" id="orb_threshold" value="orb" v-model="sortby">
       <label class="form-check-label" for="orb_threshold">
-	ORB: [[ orb.threshold ]]
+	ORB > [[ orb.threshold ]]
       </label>
     </div> 
   </div>
   <div class="col-7">
-    <input type="range"  min="0" max="1" step="0.01" v-model="orb.threshold" class="form-range" id="input_orb_threshold" :disabled="!orb.checked">
+    <input type="range"  min="0" max="1" step="0.01" v-model="orb.threshold" class="form-range" id="input_orb_threshold" :disabled="sortby!='orb'">
   </div>
   <div class="col-12">
     <button type="button" class="btn btn-primary" @click="set_filter()">Apply</button>

@@ -93,6 +93,7 @@ class PhotoModel:
                 'variants': [variant_id],
                 'comparison': {
                     'orb': 0.1,
+                    'sortby': 'orb',
                 },
             })
         # return document ID
